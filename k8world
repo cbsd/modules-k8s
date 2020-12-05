@@ -1,0 +1,127 @@
+#!/usr/local/bin/cbsd
+#v12.2.2
+DIST_MODULE_PATH="${distmoduledir}/k8s.d"
+. ${DIST_MODULE_PATH}/share/k8s.conf
+OPTARGS="${MYCOL} init_masters init_workers"
+MYARG="mode"
+MYOPTARG="display header active human k8s_name dryrun checkip develop runasap header"
+MYDESC="Operate with K8S cluster"
+CBSDMODULE="sys"
+ADDHELP="\
+"
+
+EXTHELP="wf_k8s"
+MODULE_PATH="${dbdir}/k8s"
+DIST_MODULE_PATH="${distmoduledir}/k8s.d"
+MY_RANGE=$( ${SEQ_CMD} 10 30 | ${XARGS_CMD} )
+
+dbpath="${MODULE_PATH}/k8world.sqlite"
+
+. ${subr}
+readconf k8world.conf
+
+. ${cbsdinit}
+. ${system}
+. ${strings}
+
+list_k8world()
+{
+	cbsdsqlro ${dbpath} "SELECT * from k8world"
+}
+
+
+# proxy args
+# rebuild arg list ( + add pass )
+# Pass '"' as \" in cmd
+INIT_IFS="${IFS}"
+IFS="~"
+cmd="$@"
+IFS="${INIT_IFS}"
+pass_cmd=$( while [ -n "${1}" ]; do
+	IFS="~"
+	strpos --str="${1}" --search="="
+	_pos=$?
+	if [ ${_pos} -eq 0 ]; then
+		# not params=value form
+		#printf "${1} "         # (printf handles -args (with dashes)
+		#echo -n "${1} "
+		shift
+		continue
+	fi
+	_arg_len=$( strlen ${1} )
+	_pref=$(( _arg_len - _pos ))
+	ARG=$( substr --pos=0 --len=${_pos} --str="${1}" )
+	case "${ARG}" in
+		mode)
+			shift
+			continue
+			;;
+	esac
+
+	VAL=$( substr --pos=$(( ${_pos} +2 )) --len=${_pref} --str="${1}" )
+	[ -z "${ARG}" -o -z "${VAL}" ] && continue
+	printf "${ARG}='${VAL}' "
+	shift
+done )
+
+[ ! -r "${dbpath}" ] && /usr/local/bin/cbsd ${miscdir}/updatesql ${dbpath} ${DIST_MODULE_PATH}/share/local-k8world.schema k8world
+
+case "${mode}" in
+	init)
+		available_properties="k8s_name"
+		# determine properties
+		for i in ${available_properties}; do
+			_val=
+			eval _val="\$$i"
+			[ -z "${_val}" ] && err 1 "${N1_COLOR}${CBSD_APP}: ${N2_COLOR}${i}= ${N1_COLOR}is mandatory${N0_COLOR}"
+		done
+		MYNET=
+		MYID=
+		for i in ${MY_RANGE}; do
+			# check for local iface only
+			_res=$( checkip check=3 ip="10.0.${i}.1" )
+			_ret=$?
+			if [ ${_ret} -eq 1 ]; then
+				MYNET="10.0.${i}"
+				MYID="${i}"
+				break
+			fi
+		done
+		[ -z "${MYNET}" ] && err 1 "no such free net"
+		echo "my net: ${MYNET}.0/24, ID: ${MYID}"
+		${IFCONFIG_CMD} vether${MYID} create
+		${IFCONFIG_CMD} vether${MYID} 10.0.${MYID}.1/24 up
+		valecfg mode=add name=vale${MYID}
+		/usr/sbin/valectl -h vale${MYID}:vether${MYID}
+		cbsdsqlrw ${dbpath} "INSERT INTO k8world ( k8s_name,node_cidr,net_id ) VALUES ( \"${k8s_name}\", \"${MYNET}\",\"${MYID}\" )"
+		k8s mode=init ${pass_cmd} ip4_gw=10.0.${MYID}.1 node_cidr=10.0.${MYID}.0/24 master_interface=vale${MYID} worker_interface=vale${MYID}
+		;;
+	list)
+		list_k8world | ${COLUMN_CMD} -t
+		;;
+	destroy|clean)
+		[ -z "${k8s_name}" ] && err 1 "${N1_COLOR}${CBSD_APP} ${N2_COLOR}k8s_name= ${N1_COLOR}is mandatory${N0_COLOR}"
+		MYID=$( cbsdsqlro ${dbpath} "SELECT net_id FROM k8world WHERE k8s_name=\"${k8s_name}\" LIMIT 1" )
+		[ -z "${MYID}" ] && err 1 "${N1_COLOR}${CBSD_APP}: no such record: ${N2_COLOR}${k8s_name}${N0_COLOR}"
+		# stop VM first
+		#cluster_db="${MODULE_PATH}/${k8s_name}.sqlite"
+		#[ ! -r ${cluster_db} ] && err 1 "${N1_COLOR}${CBSD_APP}: no such cluster db for ${k8s_name}: ${N2_COLOR}${cluster_db}${N0_COLOR}"
+		#bhyve_list=$( cbsdsqlro ${cluster_db} "SELECT bhyve_list FROM k8s WHERE k8s_name=\"${k8s_name}\" LIMIT 1" )
+		#if [ -n "${bhyve_list}" -a "${bhyve_list}" != "0" ]; then
+		#	${ECHO} "${N1_COLOR}${CBSD_APP} destroy cluster: destroy VM: ${N2_COLOR}${bhyve_list}${N0_COLOR}"
+		#	for i in ${bhyve_list}; do
+		#		bremove jname="${i}"
+		#	done
+		#fi
+		k8s mode=destroy k8s_name="${k8s_name}"
+		${IFCONFIG_CMD} vether${MYID} > /dev/null 2>&1 && ${IFCONFIG_CMD} vether${MYID} destroy > /dev/null 2>&1
+		valecfg mode=destroy name=vale${MYID}
+		${ECHO} "${N1_COLOR}k8s removed: ${N2_COLOR}${k8s_name}${N0_COLOR}"
+		cbsdsqlrw ${dbpath} "DELETE FROM k8world WHERE k8s_name=\"${k8s_name}\""
+		;;
+	*)
+		err 1 "${N1_COLOR}unknown mode: ${N2_COLOR}${mode}${N1_COLOR}, available: ${N2_COLOR}init,destroy,list,init_upfile${N0_COLOR}"
+		;;
+esac
+
+exit 0
