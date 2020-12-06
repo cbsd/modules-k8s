@@ -4,7 +4,7 @@ DIST_MODULE_PATH="${distmoduledir}/k8s.d"
 . ${DIST_MODULE_PATH}/share/k8s.conf
 OPTARGS="${MYCOL} init_masters init_workers"
 MYARG="mode"
-MYOPTARG="display header active human k8s_name dryrun checkip develop runasap header"
+MYOPTARG="display header active human k8s_name dryrun checkip develop runasap header gold"
 MYDESC="Operate with K8S cluster"
 CBSDMODULE="sys"
 ADDHELP="\
@@ -44,6 +44,7 @@ MODULE_PATH="${dbdir}/k8s"
 . ${subr}
 dryrun=0
 checkip=1
+gold=0
 develop=0
 runasap=0
 init_masters=
@@ -52,6 +53,17 @@ ip4_gw=
 readconf bhyve-default-default.conf
 readconf k8s.conf
 
+if [ -z "${master_interface}" ]; then
+	omaster_interface="${interface}"
+else
+	omaster_interface="${master_interface}"
+fi
+if [ -z "${worker_interface}" ]; then
+	oworker_interface="${interface}"
+else
+	oworker_interface="${worker_interface}"
+fi
+
 . ${cbsdinit}
 . ${system}
 . ${strings}
@@ -59,6 +71,16 @@ readconf k8s.conf
 
 [ -z "${display}" ] && display="k8s_name,cluster,masters,workers,pv_enable"
 [ -z "${header}" ] && header=1
+
+if [ ${gold} -eq 1 ]; then
+	develop=1
+	VM_OS_PROFILE="cloud-ubuntuserver-amd64-20.04"
+	IMGTYPE="md"
+	master_vm_imgsize="5g"
+else
+	VM_OS_PROFILE="cloud-kubernetes-20"
+	IMGTYPE="zvol"
+fi
 
 #remove commas for loop action on header
 mydisplay=$( echo ${display} | ${TR_CMD} ',' '  ' )
@@ -110,7 +132,7 @@ populate_output_data()
 # $1 - which file from. Eg: local
 show_jaildata_from_sql()
 {
-	local _i _dbfile _JCOL
+	local _i _dbfile _JCOL _res
 	local _dbpath="${MODULE_PATH}/${1}.sqlite"
 
 	[ ! -r ${_dbpath} ] && return 0
@@ -134,6 +156,7 @@ show_jaildata_from_sql()
 	. ${strings}
 
 	sqllist "${_A}" ${_JCOL}
+
 	populate_output_data
 	return 0
 }
@@ -284,7 +307,13 @@ init_k8s()
 				continue
 				;;
 			*)
-				eval _val="\$${i}"
+				# override from args (oargs=)?
+				eval _res="\$o${i}"
+				if [ -n "${_res}" ]; then
+					_val="${_res}"
+				else
+					eval _val="\$${i}"
+				fi
 				if [ -n "${_val}" ]; then
 					#echo "*** FILLED: $i = ${_val}"
 					cbsdsqlrw ${_dbpath} "UPDATE k8s SET ${i}=\"${_val}\" WHERE k8s_name=\"${k8s_name}\""
@@ -644,6 +673,8 @@ init_upfile()
 		${DIST_MODULE_PATH}/share/upfile/upfile-header-pv > ${_dstdir}/CBSDfile
 
 	${SED_CMD} -Ees:%%IP4_GW%%:"${ip4_gw}":g \
+		-es:%%VM_OS_PROFILE%%:"${VM_OS_PROFILE}":g \
+		-es:%%IMGTYPE%%:"${IMGTYPE}":g \
 		${DIST_MODULE_PATH}/share/upfile/upfile-globals >> ${_dstdir}/CBSDfile
 
 	${CAT_CMD} ${DIST_MODULE_PATH}/share/upfile/upfile-preup >> ${_dstdir}/CBSDfile
@@ -689,6 +720,9 @@ ETCD_VER="${etcd_ver}"
 CONTAINERD_VER="${containerd_ver}"
 FLANNEL_VER="${flannel_ver}"
 K8S_VER="${k8s_ver}"
+CNI_PLUGINS_LINUX_VER="${cni_plugins_linux_ver}"
+CRI_TOOLS_VER="${cri_tools_ver}"
+RUNC_VER="${runc_ver}"
 INIT_MASTERS_NUM="${init_masters_num}"
 INIT_NODES_NUM="${init_nodes_num}"
 INIT_MASTERS_IPS="${init_masters_ips}"
@@ -730,11 +764,16 @@ EOF
 	vrid=0
 
 	id=0
+	if [ ${gold} -eq 1 ]; then
+		init_role="gold"
+	else
+		init_role="supermaster"
+	fi
 	for i in ${master_list}; do
 		if [ ${id} -eq 0 ]; then
 			${SED_CMD} -Ees:%%JNAME%%:"${i}":g ${DIST_MODULE_PATH}/share/upfile/upfile-supermaster-postup >> ${_dstdir}/CBSDfile
 			${SED_CMD} -Ees:%%JNAME%%:"${i}":g \
-			-es:%%ROLE%%:supermaster:g \
+			-es:%%ROLE%%:${init_role}:g \
 			-es:%%KEYFILE_PUB%%:"${_keyfile_pub}":g \
 			-es:%%KEYFILE%%:"${_keyfile}":g \
 			-es:%%CLUSTER%%:"${cluster}":g \
@@ -757,17 +796,19 @@ EOF
 		id=$(( id + 1 ))
 	done
 
-	for i in ${worker_list}; do
-		${SED_CMD} -Ees:%%JNAME%%:"${i}":g \
-		-es:%%KEYFILE_PUB%%:"${_keyfile_pub}":g \
-		-es:%%KEYFILE%%:"${_keyfile}":g \
-		-es:%%CLUSTER%%:"${cluster}":g \
-		-es:%%WORKER_VM_RAM%%:"${worker_vm_ram}":g \
-		-es:%%WORKER_VM_CPUS%%:"${worker_vm_cpus}":g \
-		-es:%%WORKER_VM_IMGSIZE%%:"${worker_vm_imgsize}":g \
-		-es:%%WORKER_INTERFACE%%:"${worker_interface}":g \
-		-es:%%ROLE%%:worker:g ${DIST_MODULE_PATH}/share/upfile/upfile-worker >> ${_dstdir}/CBSDfile
-	done
+	if [ ${gold} -ne 1 ]; then
+		for i in ${worker_list}; do
+			${SED_CMD} -Ees:%%JNAME%%:"${i}":g \
+			-es:%%KEYFILE_PUB%%:"${_keyfile_pub}":g \
+			-es:%%KEYFILE%%:"${_keyfile}":g \
+			-es:%%CLUSTER%%:"${cluster}":g \
+			-es:%%WORKER_VM_RAM%%:"${worker_vm_ram}":g \
+			-es:%%WORKER_VM_CPUS%%:"${worker_vm_cpus}":g \
+			-es:%%WORKER_VM_IMGSIZE%%:"${worker_vm_imgsize}":g \
+			-es:%%WORKER_INTERFACE%%:"${worker_interface}":g \
+			-es:%%ROLE%%:worker:g ${DIST_MODULE_PATH}/share/upfile/upfile-worker >> ${_dstdir}/CBSDfile
+		done
+	fi
 
 	${CAT_CMD} ${DIST_MODULE_PATH}/share/upfile/upfile-postup >> ${_dstdir}/CBSDfile
 	cbsdsqlrw ${_dbpath} "UPDATE k8s SET bhyve_list=\"${master_list} ${worker_list}\" WHERE k8s_name=\"${k8s_name}\""

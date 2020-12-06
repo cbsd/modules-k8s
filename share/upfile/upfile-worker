@@ -20,12 +20,17 @@ postcreate_%%JNAME%%()
 
 	if [ "${DEVELOP}" = "1" ]; then
 		# development only
-		bexec jname=${jname} sudo rm -rf /home/ubuntu/kubernetes
-		bexec jname=${jname} sudo rm -rf /home/ubuntu/puppet
+
+		# development only
+
 		bscp /root/modules-k8s/kubernetes.tgz ${jname}:kubernetes.tgz
 		bscp /root/modules-k8s/puppet.tgz ${jname}:puppet.tgz
-		bexec jname=${jname} sudo tar xfzv kubernetes.tgz
-		bexec jname=${jname} sudo tar xfzv puppet.tgz
+
+		bexec jname=${jname} sudo "[ -d /home/ubuntu/kubernetes ] && rm -rf /home/ubuntu/kubernetes" || true
+		bexec jname=${jname} sudo "[ -d /home/ubuntu/puppet ] && rm -rf /home/ubuntu/puppet" || true
+		bexec jname=${jname} sudo "tar xfzv kubernetes.tgz"
+		bexec jname=${jname} sudo "tar xfzv puppet.tgz"
+		bexec jname=${jname} sudo "mkdir -p /etc/puppetlabs/puppet" || true
 		bexec jname=${jname} sudo rsync -avz /home/ubuntu/puppet/ /etc/puppetlabs/puppet/
 	fi
 
