@@ -66,6 +66,7 @@ workers="INTEGER DEFAULT 0"
 
 node_cidr="TEXT DEFAULT \"0\""
 clusteriprange="TEXT DEFAULT \"172.18.0.0/24\""
+container_engine="TEXT DEFAULT \"docker\""
 
 CONSTRAINT=
 INITDB=

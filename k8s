@@ -476,6 +476,11 @@ init_upfile()
 			;;
 	esac
 
+	init_masters_fqdn=
+	init_masters_hostname=
+	init_workers_fqdn=
+	init_workers_hostname=
+
 	# calc number of members
 	init_masters_num=0
 	_init_masters_ips_tmp=
@@ -680,7 +685,6 @@ init_upfile()
 	${CAT_CMD} ${DIST_MODULE_PATH}/share/upfile/upfile-preup >> ${_dstdir}/CBSDfile
 
 	master_list=
-
 	if [ ${init_masters_num} -gt 0 ]; then
 		for i in $( ${JOT_CMD} ${init_masters_num} ); do
 			name=$( freejname default_jailname=master )
@@ -698,8 +702,28 @@ init_upfile()
 		done
 	fi
 
+	worker_list=
+	if [ ${init_nodes_num} -gt 0 ]; then
+		for i in $( ${JOT_CMD} ${init_nodes_num} ); do
+			name=$( freejname default_jailname=worker )
+			if [ -z "${worker_list}" ]; then
+				worker_list="${name}"
+			else
+				worker_list="${worker_list} ${name}"
+			fi
+
+			if [ -z "${server_dns}" -o "${server_dns}" = "0" ]; then
+				server_dns="${name}"
+			else
+				server_dns="${server_dns},${name}"
+			fi
+
+		done
+	fi
+
 	# get last IP octet as VRID
 	vrid=${vip#*.*.*.}
+	eval $( ${miscdir}/sipcalc ${vrid}/24 )
 
 	# todo: rewrite from true/false to 1/0
 	if [ "${kubelet_master}" = "1" ]; then
@@ -745,38 +769,29 @@ DEVELOP="${develop}"
 INSTALL_KUBELET_ON_MASTER="${kubelet_master}"
 POD_CIDR="${flannel_net}"
 CLUSTERIPRANGE="${clusteriprange}"
+NODE_NETWORK="${_network_address}"
+CONTAINER_ENGINE="${container_engine}"
 EOF
-
-
-	worker_list=
-
-	if [ ${init_nodes_num} -gt 0 ]; then
-		for i in $( ${JOT_CMD} ${init_nodes_num} ); do
-			name=$( freejname default_jailname=worker )
-			if [ -z "${worker_list}" ]; then
-				worker_list="${name}"
-			else
-				worker_list="${worker_list} ${name}"
-			fi
-		done
-	fi
 
 	vrid=0
 
-	id=0
+	id=1
 	if [ ${gold} -eq 1 ]; then
 		init_role="gold"
 	else
 		init_role="supermaster"
 	fi
 	for i in ${master_list}; do
-		if [ ${id} -eq 0 ]; then
+		#MASTER_NAME="master${i}"
+		MASTER_NAME="${i}"
+		if [ ${id} -eq 1 ]; then
 			${SED_CMD} -Ees:%%JNAME%%:"${i}":g ${DIST_MODULE_PATH}/share/upfile/upfile-supermaster-postup >> ${_dstdir}/CBSDfile
 			${SED_CMD} -Ees:%%JNAME%%:"${i}":g \
 			-es:%%ROLE%%:${init_role}:g \
 			-es:%%KEYFILE_PUB%%:"${_keyfile_pub}":g \
 			-es:%%KEYFILE%%:"${_keyfile}":g \
 			-es:%%CLUSTER%%:"${cluster}":g \
+			-es:%%MASTER_NAME%%:"${MASTER_NAME}":g \
 			-es:%%MASTER_VM_RAM%%:"${master_vm_ram}":g \
 			-es:%%MASTER_VM_CPUS%%:"${master_vm_cpus}":g \
 			-es:%%MASTER_VM_IMGSIZE%%:"${master_vm_imgsize}":g \
@@ -796,12 +811,16 @@ EOF
 		id=$(( id + 1 ))
 	done
 
+	id=1
 	if [ ${gold} -ne 1 ]; then
 		for i in ${worker_list}; do
+			#WORKER_NAME="worker${i}"
+			WORKER_NAME="${i}"
 			${SED_CMD} -Ees:%%JNAME%%:"${i}":g \
 			-es:%%KEYFILE_PUB%%:"${_keyfile_pub}":g \
 			-es:%%KEYFILE%%:"${_keyfile}":g \
 			-es:%%CLUSTER%%:"${cluster}":g \
+			-es:%%WORKER_NAME%%:"${WORKER_NAME}":g \
 			-es:%%WORKER_VM_RAM%%:"${worker_vm_ram}":g \
 			-es:%%WORKER_VM_CPUS%%:"${worker_vm_cpus}":g \
 			-es:%%WORKER_VM_IMGSIZE%%:"${worker_vm_imgsize}":g \
