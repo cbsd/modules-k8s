@@ -828,6 +828,7 @@ EOF
 			-es:%%WORKER_VM_IMGSIZE%%:"${worker_vm_imgsize}":g \
 			-es:%%WORKER_INTERFACE%%:"${worker_interface}":g \
 			-es:%%ROLE%%:worker:g ${DIST_MODULE_PATH}/share/upfile/upfile-worker >> ${_dstdir}/CBSDfile
+			id=$(( id + 1 ))
 		done
 	fi
 
