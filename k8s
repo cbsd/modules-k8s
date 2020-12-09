@@ -783,8 +783,8 @@ EOF
 		init_role="supermaster"
 	fi
 	for i in ${master_list}; do
-		#MASTER_NAME="master${i}"
-		MASTER_NAME="${i}"
+		MASTER_NAME="master${id}"
+		#MASTER_NAME="${i}"
 		if [ ${id} -eq 1 ]; then
 			${SED_CMD} -Ees:%%JNAME%%:"${i}":g ${DIST_MODULE_PATH}/share/upfile/upfile-supermaster-postup >> ${_dstdir}/CBSDfile
 			${SED_CMD} -Ees:%%JNAME%%:"${i}":g \
@@ -816,8 +816,8 @@ EOF
 	id=1
 	if [ ${gold} -ne 1 ]; then
 		for i in ${worker_list}; do
-			#WORKER_NAME="worker${i}"
-			WORKER_NAME="${i}"
+			WORKER_NAME="worker${id}"
+			#WORKER_NAME="${i}"
 			${SED_CMD} -Ees:%%JNAME%%:"${i}":g \
 			-es:%%KEYFILE_PUB%%:"${_keyfile_pub}":g \
 			-es:%%KEYFILE%%:"${_keyfile}":g \
