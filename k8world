@@ -16,6 +16,7 @@ DIST_MODULE_PATH="${distmoduledir}/k8s.d"
 MY_RANGE=$( ${SEQ_CMD} 10 30 | ${XARGS_CMD} )
 
 dbpath="${MODULE_PATH}/k8world.sqlite"
+runasap=0
 
 . ${subr}
 readconf k8world.conf
@@ -94,7 +95,7 @@ case "${mode}" in
 		valecfg mode=add name=vale${MYID}
 		/usr/sbin/valectl -h vale${MYID}:vether${MYID}
 		cbsdsqlrw ${dbpath} "INSERT INTO k8world ( k8s_name,node_cidr,net_id ) VALUES ( \"${k8s_name}\", \"${MYNET}\",\"${MYID}\" )"
-		k8s mode=init ${pass_cmd} ip4_gw=10.0.${MYID}.1 node_cidr=10.0.${MYID}.0/24 master_interface=vale${MYID} worker_interface=vale${MYID}
+		k8s mode=init ${pass_cmd} ip4_gw=10.0.${MYID}.1 node_cidr=10.0.${MYID}.0/24 master_interface=vale${MYID} worker_interface=vale${MYID} runasap=${runasap}
 		;;
 	list)
 		list_k8world | ${COLUMN_CMD} -t

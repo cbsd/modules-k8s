@@ -343,6 +343,15 @@ init_k8s()
 		cbsdsqlrw ${_dbpath} "UPDATE k8s SET ingress_host=\"${ingress_host}\" WHERE k8s_name=\"${k8s_name}\""
 	fi
 
+	if [ -z "${server_kubeconfig}" -a -n "${server_kubeconfig_domain}" ]; then
+		server_kubeconfig="${k8s_name}.${server_kubeconfig_domain}"
+		cbsdsqlrw ${_dbpath} "UPDATE k8s SET server_kubeconfig=\"${server_kubeconfig}\" WHERE k8s_name=\"${k8s_name}\""
+	fi
+	if [ -z "${server_dns}" -a -n "${server_dns_domain}" ]; then
+		server_dns="${k8s_name}.${server_dns_domain}"
+		cbsdsqlrw ${_dbpath} "UPDATE k8s SET server_dns=\"${server_dns}\" WHERE k8s_name=\"${k8s_name}\""
+	fi
+
 	${SSH_KEYGEN_CMD} -t ed25519 -f ${_keyfile} -N '' > /dev/null
 	${MV_CMD} ${_keyfile}.pub ${_pubfile} ${_keyfile_pub}
 

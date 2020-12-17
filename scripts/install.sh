@@ -6,7 +6,12 @@
 #/k8s/pv/nfs2 10.0.0.62 -maproot=root
 ##--
 [ "${1}" != "up" ] && exit 1
-
+. /etc/rc.conf
+if [ ! -r ${cbsd_workdir}/etc/k8s.conf ]; then
+	echo "no such ${cbsd_workdir}/etc/k8s.conf"
+	exit 1
+fi
+. ${cbsd_workdir}/etc/k8s.conf
 #set -o xtrace
 
 if ! zpool list ${ZPOOL} > /dev/null 2>&1; then
@@ -64,3 +69,4 @@ if [ "${TMP_MNT}" != "${ZFS_K8S_PV_ROOT_MNT}" ]; then
 	fi
 fi
 
+exit 0
