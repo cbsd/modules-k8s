@@ -29,6 +29,8 @@ fi
 
 echo "   * prepare /etc/exports ( $root,$path,$hosts)..."
 
+[ ! -r /etc/exports ] && touch /etc/exports
+
 # maps
 search_str="V4: "
 if grep -q "${search_str}" /etc/exports; then
