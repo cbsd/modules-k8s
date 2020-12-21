@@ -5,12 +5,33 @@
 #/k8s/pv/nfs1 10.0.0.61 -maproot=root
 #/k8s/pv/nfs2 10.0.0.62 -maproot=root
 ##--
-[ "${1}" != "up" ] && exit 1
-. /etc/rc.conf
-if [ ! -r ${cbsd_workdir}/etc/k8s.conf ]; then
-	echo "no such ${cbsd_workdir}/etc/k8s.conf"
-	exit 1
+pgm="${0##*/}"          # Program basename
+progdir="${0%/*}"       # Program directory
+: ${REALPATH_CMD=$( which realpath )}
+: ${SQLITE3_CMD=$( which sqlite3 )}
+: ${RM_CMD=$( which rm )}
+: ${MKDIR_CMD=$( which mkdir )}
+: ${FORM_PATH="/opt/forms"}
+: ${distdir="/usr/local/cbsd"}
+
+MY_PATH="$( ${REALPATH_CMD} ${progdir} )"
+
+# MAIN
+if [ -z "${workdir}" ]; then
+	[ -z "${cbsd_workdir}" ] && . /etc/rc.conf
+	[ -z "${cbsd_workdir}" ] && exit 0
+	workdir="${cbsd_workdir}"
 fi
+
+set -e
+. ${distdir}/cbsd.conf
+. ${distdir}/tools.subr
+. ${subr}
+set +e
+
+[ "${1}" != "up" ] && exit 1
+
+[ ! -r ${cbsd_workdir}/etc/k8s.conf ] && err 1 "${N1_COLOR}please install first: ${N2_COLOR}${cbsd_workdir}/etc/k8s.conf${N0_COLOR}"
 . ${cbsd_workdir}/etc/k8s.conf
 #set -o xtrace
 
