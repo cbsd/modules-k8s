@@ -13,6 +13,7 @@ ADDHELP="\
 EXTHELP="wf_k8s"
 MODULE_PATH="${dbdir}/k8s"
 DIST_MODULE_PATH="${distmoduledir}/k8s.d"
+# 20 vale max - adjust dev.netmap.buf_size = 24576
 MY_RANGE=$( ${SEQ_CMD} 10 30 | ${XARGS_CMD} )
 
 dbpath="${MODULE_PATH}/k8world.sqlite"
