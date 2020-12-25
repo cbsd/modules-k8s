@@ -68,5 +68,8 @@ node_cidr="TEXT DEFAULT \"0\""
 clusteriprange="TEXT DEFAULT \"172.18.0.0/24\""
 container_engine="TEXT DEFAULT \"docker\""
 
+# extra IPs for server_ip, e.g. external balancer
+server_ip_extra="TEXT DEFAULT \"0\""
+
 CONSTRAINT=
 INITDB=

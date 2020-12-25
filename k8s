@@ -351,6 +351,14 @@ init_k8s()
 		server_dns="${k8s_name}.${server_dns_domain}"
 		cbsdsqlrw ${_dbpath} "UPDATE k8s SET server_dns=\"${server_dns}\" WHERE k8s_name=\"${k8s_name}\""
 	fi
+	if [ -n "${server_ip_extra}" ]; then
+		server_ip_extra="${server_ip_extra}"
+		cbsdsqlrw ${_dbpath} "UPDATE k8s SET server_ip_extra=\"${server_ip_extra}\" WHERE k8s_name=\"${k8s_name}\""
+	fi
+	if [ -z "${server_kubeconfig}" -a -n "${server_kubeconfig_ip}" ]; then
+		server_kubeconfig="${server_kubeconfig_ip}"
+		cbsdsqlrw ${_dbpath} "UPDATE k8s SET server_kubeconfig=\"${server_kubeconfig}\" WHERE k8s_name=\"${k8s_name}\""
+	fi
 
 	${SSH_KEYGEN_CMD} -t ed25519 -f ${_keyfile} -N '' > /dev/null
 	${MV_CMD} ${_keyfile}.pub ${_pubfile} ${_keyfile_pub}
@@ -635,6 +643,8 @@ init_upfile()
 			server_ip="${server_ip},${i}"
 		fi
 	done
+
+	[ -n "${server_ip_extra}" -a "${server_ip_extra}" != "0" ] && server_ip="${server_ip},${server_ip_extra}"
 
 	if [ ${pv_enable} -eq 1 ]; then
 		test_for_pv
