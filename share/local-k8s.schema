@@ -71,5 +71,8 @@ container_engine="TEXT DEFAULT \"docker\""
 # extra IPs for server_ip, e.g. external balancer
 server_ip_extra="TEXT DEFAULT \"0\""
 
+# callback url
+callback_url="TEXT DEFAULT \"0\""
+
 CONSTRAINT=
 INITDB=
