@@ -31,9 +31,6 @@ list_k8world()
 	cbsdsqlro ${dbpath} "SELECT * from k8world"
 }
 
-echo "$*" >> /tmp/k.txt
-
-
 # proxy args
 # rebuild arg list ( + add pass )
 # Pass '"' as \" in cmd
