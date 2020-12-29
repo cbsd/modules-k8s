@@ -49,15 +49,15 @@ else
 	echo "${search_str}" >> /etc/exports
 fi
 
-search_str="${path} "
+search_str="${root}${path} "
 if grep -q "${search_str}" /etc/exports; then
 	# path exist
 	cp -a /etc/exports /etc/exports.bak
-	grep -v "${path} " /etc/exports.bak > /etc/exports
-	echo "${path} ${hosts} -maproot=root" >> /etc/exports
+	grep -v "${root}${path} " /etc/exports.bak > /etc/exports
+	echo "${root}${path} ${hosts} -maproot=root" >> /etc/exports
 else
 	# not exist
-	echo "${path} ${hosts} -maproot=root" >> /etc/exports
+	echo "${root}${path} ${hosts} -maproot=root" >> /etc/exports
 fi
 
 for i in mountd; do
