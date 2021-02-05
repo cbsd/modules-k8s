@@ -285,7 +285,8 @@ init_k8s()
 
 	if [ -r ${_dbpath} ]; then
 		_res=$( cbsdsqlro ${_dbpath} "SELECT init_node FROM k8s LIMIT 1" )
-		err 1 "${N1_COLOR}K8S already initialized by: ${N2_COLOR}${_res} ${N1_COLOR}( ${_dbpath} )${N0_COLOR}"
+		${ECHO} "${N1_COLOR}K8S already initialized by: ${N2_COLOR}${_res} ${N1_COLOR}( ${_dbpath} )${N0_COLOR}"
+		err 1 "${N1_COLOR}Please use to create CBSDfile: ${N2_COLOR}cbsd k8s mode=init_upfile k8s_name=\"${k8s_name}\"${N0_COLOR}"
 	fi
 
 	local _system_dir="init.d init_upfile.d destroy.d postrunasap.d"
@@ -363,7 +364,7 @@ init_k8s()
 	${SSH_KEYGEN_CMD} -t ed25519 -f ${_keyfile} -N '' > /dev/null
 	${MV_CMD} ${_keyfile}.pub ${_pubfile} ${_keyfile_pub}
 
-	${ECHO} "${N1_COLOR}Success. Please use to create CBSDfile: ${N2_COLOR}cbsd k8s mode=init_upfile k8s_name="${k8s_name}"${N0_COLOR}"
+	${ECHO} "${N1_COLOR}Success. Please use to create CBSDfile: ${N2_COLOR}cbsd k8s mode=init_upfile k8s_name=\"${k8s_name}\"${N0_COLOR}"
 
 	export_k8s_data_for_external_hook
 	external_exec_master_script "${k8s_sys_skel_dir}/init.d"
