@@ -49,14 +49,23 @@ develop=0
 runasap=0
 init_masters=
 init_workers=
+
 ip4_gw=
+interface=
+
+. ${cbsdinit}
+
+[ -n "${ip4_gw}" ] && oip4_gw="${ip4_gw}"
+[ -n "${interface}" ] && ointerface="${interface}"
+
 readconf bhyve-default-default.conf
 readconf k8s.conf
 
-. ${cbsdinit}
 . ${system}
 . ${strings}
 . ${distdir}/jcreate.subr	# for external_exec_master_script
+
+[ -n "${ointerface}" ] && interface="${ointerface}"
 
 if [ -z "${master_interface}" ]; then
 	omaster_interface="${interface}"
@@ -68,7 +77,6 @@ if [ -z "${worker_interface}" ]; then
 else
 	oworker_interface="${worker_interface}"
 fi
-
 
 [ -z "${display}" ] && display="k8s_name,cluster,masters,workers,pv_enable"
 [ -z "${header}" ] && header=1
@@ -613,6 +621,8 @@ init_upfile()
 
 	_prev_net=0
 
+	[ -n "${oip4_gw}" ] && ip4_gw="${oip4_gw}"
+
 	for src in vip init_nodes_ips init_masters_ips ip4_gw; do
 		eval i="\$$src"
 		eval $( ${miscdir}/sipcalc ${i}/24 )
@@ -796,6 +806,9 @@ EOF
 
 	vrid=0
 
+	[ -n "${omaster_interface}" ] && master_interface="${omaster_interface}"
+	[ -n "${oworker_interface}" ] && worker_interface="${oworker_interface}"
+
 	id=1
 	if [ ${gold} -eq 1 ]; then
 		init_role="gold"
@@ -864,6 +877,10 @@ EOF
 k8s_sys_skel_dir="${MODULE_PATH}/share"
 log_dir="/var/log/k8s"
 [ ! -d "${log_dir}" ] && ${MKDIR_CMD} -p ${log_dir}
+
+[ -n "${oip4_gw}" ] && ip4_gw="${oip4_gw}"
+[ -n "${omaster_interface}" ] && master_interface="${omaster_interface}"
+[ -n "${oworker_interface}" ] && worker_interface="${oworker_interface}"
 
 if [ -z "${ip4_gw}" -o "${ip4_gw}" = "0" ]; then
 	[ -n "${ci_gw4}" ] && ip4_gw="${ci_gw4}"

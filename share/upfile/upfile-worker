@@ -26,13 +26,14 @@ postcreate_%%JNAME%%()
 		bscp /root/modules-k8s/kubernetes.tgz ${jname}:kubernetes.tgz
 		bscp /root/modules-k8s/puppet.tgz ${jname}:puppet.tgz
 
-		bexec jname=${jname} sudo "[ -d /home/ubuntu/kubernetes ] && rm -rf /home/ubuntu/kubernetes" || true
-		bexec jname=${jname} sudo "[ -d /home/ubuntu/puppet ] && rm -rf /home/ubuntu/puppet" || true
-		bexec jname=${jname} sudo "tar xfzv kubernetes.tgz"
-		bexec jname=${jname} sudo "tar xfzv puppet.tgz"
-		bexec jname=${jname} sudo "mkdir -p /etc/puppetlabs/puppet" || true
-		bexec jname=${jname} sudo rsync -avz /home/ubuntu/puppet/ /etc/puppetlabs/puppet/
-	fi
+		bexec <<EOF
+sudo [ -d /home/ubuntu/kubernetes ] && rm -rf /home/ubuntu/kubernetes || true
+sudo [ -d /home/ubuntu/puppet ] && rm -rf /home/ubuntu/puppet || true
+sudo tar xfzv kubernetes.tgz
+sudo tar xfzv puppet.tgz
+sudo mkdir -p /etc/puppetlabs/puppet || true
+sudo rsync -avz /home/ubuntu/puppet/ /etc/puppetlabs/puppet/
+EOF
 
-	bexec jname=${jname} sudo /home/ubuntu/kubernetes/prepare_master.sh worker | tee -a /tmp/prepare_master-${jname}.log
+	bexec sudo /home/ubuntu/kubernetes/prepare_master.sh worker | tee -a /tmp/prepare_master-${jname}.log
 }
