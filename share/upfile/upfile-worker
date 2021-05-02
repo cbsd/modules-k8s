@@ -34,6 +34,6 @@ sudo tar xfzv puppet.tgz
 sudo mkdir -p /etc/puppetlabs/puppet || true
 sudo rsync -avz /home/ubuntu/puppet/ /etc/puppetlabs/puppet/
 EOF
-
+	fi
 	bexec sudo /home/ubuntu/kubernetes/prepare_master.sh worker | tee -a /tmp/prepare_master-${jname}.log
 }
