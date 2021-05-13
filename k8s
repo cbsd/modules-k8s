@@ -4,38 +4,64 @@ DIST_MODULE_PATH="${distmoduledir}/k8s.d"
 . ${DIST_MODULE_PATH}/share/k8s.conf
 OPTARGS="${MYCOL} init_masters init_workers"
 MYARG="mode"
-MYOPTARG="display header active human k8s_name dryrun checkip develop runasap header gold"
+MYOPTARG="checkip develop display dryrun gold header human k8s_name runasap"
 MYDESC="Operate with K8S cluster"
 CBSDMODULE="sys"
 ADDHELP="\
-  mode=init,destroy,list,shortlist,init_upfile\n\
-  mode=init - init/create new K8S cluster (locally),\n\
-  mode=init_upfile - generate upfile (locally),\n\
-  checkip= 1,0 - check IP when upfile created, default - 1, check\n\
-  runasap= 1,0 - atomic init+init_upfile+up, default - 0\n\
-  header=0 don't print header\n\
-  display= list by comma for column. Default: name,pkg_vm_cpus,pkg_vm_ram,pkg_vm_disk\n\
-  dryrun=1 - print command only, dont apply\n\
-    mode=init optional args: \n\
-     ${OPTARGS} \n\
-  cluster           - cluster name\n\
-  master_vm_cpus    - set vcpu for master node (default: 2)\n\
-  master_vm_ram     - set vm_ram for master node (default: 2g)\n\
-  master_vm_imgsize - set size of virtual disk for master node (default: 20g)\n\
-  worker_vm_cpus    - set vcpu for worker node (default: 1)\n\
-  worker_vm_ram     - set vm_ram for worker node (default: 1g)\n\
-  worker_vm_imgsize - set size of virtual disk for worker node (default: 20g)\n\
-  init_masters      - number of master, short alias for init_masters_ips=\"DHCP DHCP DHCP DHCP\"\n\
-  init_workers      - number of workers, short alias for init_workers_ips=\"DHCP DHCP DHCP DHCP\"\n\
-  flannel_net       - flannel internal docker/pod subnet\n\
-  server_dns        - extra dns names for cluster, comma-separated when multiple\n\
-  server_kubeconfig - set kubeconfig server to alt name\n\
-  node_cidr         - alternative CBSD IP POOL for DHCP, e.g: 10.10.0.0/24\n\
-  init example:\n\
-    cbsd k8s mode=init k8s_name=k1 init_masters_ips=\"10.0.0.2\" vip=DHCP\n\
-    cbsd k8s mode=init k8s_name=k1 init_masters_ips=\"10.0.0.2\" init_nodes_ips=\"10.0.0.101 10.0.0.102 10.0.0.103\" vip=10.0.0.100 worker_vm_ram=8g worker_vm_cpus=8 worker_imgsize=80g\n\
-    cbsd k8s mode=init k8s_name=k2 init_masters_ips=\"DHCP DHCP DHCP\" init_nodes_ips=\"DHCP DHCP DHCP\" vip=DHCP cluster=\"k8s-cloud.com\"\n\
-    cbsd k8s mode=init k8s_name=k3 init_masters_ips=\"DHCP DHCP DHCP\" init_nodes_ips=\"DHCP DHCP DHCP\" vip=DHCP cluster=\"k8s-cloud.com\" master_interface=\"cbsdvale_vale1\" worker_interface=\"cbsdvale_vale1\" pv_enable=1 pv_spec_nfs_path=/k8s-nfs-share pv_spec_server=192.168.0.1\n\
+
+${H3_COLOR}Description${N0_COLOR}:
+
+  K8S module is for designed to be used with CBSD kubernetes cloud image.
+  The module is a kubernetes cluster configurator that turns your CBSD
+  into a kind of bhyve-based minikube. Multi-master and multi-worker cluster
+  supported. PV can be configured from master side via NFSv4 (optional).
+
+${H3_COLOR}Options${N0_COLOR}:
+
+  checkip=           - check IP when upfile created, default - 1, check.
+  develop=           - for develop build only.
+  display=           - list by comma for column in 'mode=list',
+                       default: 'name,pkg_vm_cpus,pkg_vm_ram,pkg_vm_disk'.
+  dryrun=            - print command only, don't apply.
+  gold               - for develop build only.
+  header=            - don't print column header in 'mode=list'.
+  human=             - convert to human readable form.
+  k8s_name=          - name of the K8S cluster (one word).
+  mode               - action: init,destroy,list,shortlist,init_upfile:
+    mode=init        - init new K8S cluster, optional args:
+     ${OPTARGS} 
+    mode=init_upfile - generate upfile (locally),
+
+  runasap          - run a cluster immediately (atomic init+init_upfile+up),
+                     default=0.
+
+  cluster           - cluster name
+  master_vm_cpus    - set vcpu for master node (default: 2)
+  master_vm_ram     - set vm_ram for master node (default: 2g)
+  master_vm_imgsize - set size of virtual disk for master node (default: 20g)
+  worker_vm_cpus    - set vcpu for worker node (default: 1)
+  worker_vm_ram     - set vm_ram for worker node (default: 1g)
+  worker_vm_imgsize - set size of virtual disk for worker node (default: 20g)
+  init_masters      - number of master, short alias for init_masters_ips=\"DHCP DHCP DHCP DHCP\"
+  init_workers      - number of workers, short alias for init_workers_ips=\"DHCP DHCP DHCP DHCP\"
+  flannel_net       - flannel internal docker/pod subnet
+  server_dns        - extra dns names for cluster, comma-separated when multiple
+  server_kubeconfig - set kubeconfig server to alt name
+  node_cidr         - alternative CBSD IP POOL for DHCP, e.g: 10.10.0.0/24
+
+${H3_COLOR}Examples${N0_COLOR}:
+
+  init example:
+
+    cbsd k8s mode=init k8s_name=k1 init_masters_ips=\"10.0.0.2\" vip=DHCP
+    cbsd k8s mode=init k8s_name=k1 init_masters_ips=\"10.0.0.2\" init_nodes_ips=\"10.0.0.101 10.0.0.102 10.0.0.103\" vip=10.0.0.100 worker_vm_ram=8g worker_vm_cpus=8 worker_imgsize=80g
+    cbsd k8s mode=init k8s_name=k2 init_masters_ips=\"DHCP DHCP DHCP\" init_nodes_ips=\"DHCP DHCP DHCP\" vip=DHCP cluster=\"k8s-cloud.com\"
+    cbsd k8s mode=init k8s_name=k3 init_masters_ips=\"DHCP DHCP DHCP\" init_nodes_ips=\"DHCP DHCP DHCP\" vip=DHCP cluster=\"k8s-cloud.com\" master_interface=\"cbsdvale_vale1\" worker_interface=\"cbsdvale_vale1\" pv_enable=1 pv_spec_nfs_path=/k8s-nfs-share pv_spec_server=192.168.0.1
+
+  for gold image:
+    cbsd k8s mode=init k8s_name=gold init_masters_ips=10.0.0.28 master_interface="cbsdvale_vale1" worker_interface="cbsdvale_vale1" ip4_gw=10.0.0.1 develop=1 gold=1
+    cbsd k8s mode=init_upfile k8s_name="gold" develop=1 gold=1
+
 "
 EXTHELP="wf_k8s"
 
