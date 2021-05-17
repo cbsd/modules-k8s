@@ -4,7 +4,7 @@ DIST_MODULE_PATH="${distmoduledir}/k8s.d"
 . ${DIST_MODULE_PATH}/share/k8s.conf
 OPTARGS="${MYCOL} init_masters init_workers"
 MYARG="mode"
-MYOPTARG="checkip develop display dryrun gold header human k8s_name runasap"
+MYOPTARG="${OPTARGS} checkip develop display dryrun gold header human k8s_name runasap"
 MYDESC="Operate with K8S cluster"
 CBSDMODULE="sys"
 ADDHELP="\
@@ -78,11 +78,13 @@ init_workers=
 
 ip4_gw=
 interface=
+init_masters_ips=
 
 . ${cbsdinit}
 
 [ -n "${ip4_gw}" ] && oip4_gw="${ip4_gw}"
 [ -n "${interface}" ] && ointerface="${interface}"
+[ -n "${init_masters_ips}" ] && oinit_masters_ips="${init_masters_ips}"
 
 readconf bhyve-default-default.conf
 readconf k8s.conf
@@ -537,6 +539,7 @@ init_upfile()
 	# calc number of members
 	init_masters_num=0
 	_init_masters_ips_tmp=
+
 	for i in ${init_masters_ips}; do
 		case "${i}" in
 			[Dd][Hh][Cc][Pp])
