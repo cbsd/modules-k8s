@@ -517,7 +517,7 @@ init_upfile()
 	case "${vip}" in
 		[Dd][Hh][Cc][Pp])
 			if [ -n "${node_cidr}" -a "${node_cidr}" != "0" ]; then
-				vip=$( dhcpd ip4pool=${node_cidr} )
+				vip=$( dhcpd ip4pool=${node_cidr} dhcpd_helper=internal )
 				_ret=$?
 			else
 				vip=$( dhcpd )
@@ -545,7 +545,7 @@ init_upfile()
 		case "${i}" in
 			[Dd][Hh][Cc][Pp])
 				if [ -n "${node_cidr}" -a "${node_cidr}" != "0" ]; then
-					_res=$( dhcpd ip4pool=${node_cidr} )
+					_res=$( dhcpd ip4pool=${node_cidr} dhcpd_helper=internal )
 					_ret=$?
 				else
 					_res=$( dhcpd )
@@ -607,7 +607,7 @@ init_upfile()
 			case "${i}" in
 				[Dd][Hh][Cc][Pp])
 					if [ -n "${node_cidr}" -a "${node_cidr}" != "0" ]; then
-						_res=$( dhcpd ip4pool=${node_cidr} )
+						_res=$( dhcpd ip4pool=${node_cidr} dhcpd_helper=internal )
 						_ret=$?
 					else
 						_res=$( dhcpd )
