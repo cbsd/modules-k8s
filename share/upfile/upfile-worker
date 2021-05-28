@@ -3,7 +3,7 @@ bhyve_%%JNAME%%()
 	vm_ram="%%WORKER_VM_RAM%%"
 	vm_cpus="%%WORKER_VM_CPUS%%"
 	imgsize="%%WORKER_VM_IMGSIZE%%"
-	ip4_addr=$( dhcpd ip4pool="${INIT_NODES_IPS}" )
+	ip4_addr=$( dhcpd ip4pool="${INIT_NODES_IPS}" dhcpd_helper=internal )
 	[ -z "${ip4_addr}" ] && err 1 "${W1_COLOR}${CBSD_APP} error: ${N1_COLOR}no free IP for %%JNAME%%, pool ended or address conflict?: ${N2_COLOR}${INIT_MASTERS_IPS}${N0_COLOR}"
 	fqdn="%%WORKER_NAME%%.%%CLUSTER%%"
 	ci_jname="${jname}"

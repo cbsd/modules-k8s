@@ -20,7 +20,7 @@ preup()
 
 	# dhcpd cleanip list
 	_clean_ip="${INIT_NODES_IPS} ${INIT_MASTERS_IPS} ${VIP}"
-	dhcpd cleanup="${_clean_ip}"
+	dhcpd cleanup="${_clean_ip}" dhcpd_helper=internal
 
 	# configure PV
 	if [ "${PV_ENABLE}" = "1" ]; then

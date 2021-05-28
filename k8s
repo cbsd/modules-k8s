@@ -72,7 +72,7 @@ dryrun=0
 checkip=1
 gold=0
 develop=0
-runasap=0
+runasap=
 init_masters=
 init_workers=
 
@@ -85,6 +85,7 @@ init_masters_ips=
 [ -n "${ip4_gw}" ] && oip4_gw="${ip4_gw}"
 [ -n "${interface}" ] && ointerface="${interface}"
 [ -n "${init_masters_ips}" ] && oinit_masters_ips="${init_masters_ips}"
+[ -n "${runasap}" ] && orunasap="${runasap}"
 
 readconf bhyve-default-default.conf
 readconf k8s.conf
@@ -980,6 +981,9 @@ case "${mode}" in
 		done
 		[ "${pv_enable}" = "1" ] && test_for_pv
 		init_k8s
+
+		[ -n "${orunasap}" ] && runasap=1
+
 		if [ ${runasap} -eq 1 ]; then
 			temp_dir=$( ${MKTEMP_CMD} -d )
 			cd ${temp_dir}

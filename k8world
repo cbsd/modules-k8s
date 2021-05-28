@@ -95,6 +95,7 @@ case "${mode}" in
 		valecfg mode=add name=vale${MYID}
 		/usr/sbin/valectl -h vale${MYID}:vether${MYID}
 		cbsdsqlrw ${dbpath} "INSERT INTO k8world ( k8s_name,node_cidr,net_id ) VALUES ( \"${k8s_name}\", \"${MYNET}\",\"${MYID}\" )"
+		echo "[debug]: k8s mode=init ${pass_cmd} ip4_gw=10.0.${MYID}.1 node_cidr=10.0.${MYID}.0/24 master_interface=vale${MYID} worker_interface=vale${MYID} runasap=${runasap}"
 		k8s mode=init ${pass_cmd} ip4_gw=10.0.${MYID}.1 node_cidr=10.0.${MYID}.0/24 master_interface=vale${MYID} worker_interface=vale${MYID} runasap=${runasap}
 		;;
 	list)
