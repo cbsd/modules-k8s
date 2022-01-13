@@ -25,14 +25,25 @@ fi
 
 set -e
 . ${distdir}/cbsd.conf
-. ${distdir}/tools.subr
+. ${subrdir}/tools.subr
 . ${subr}
 set +e
 
-[ "${1}" != "up" ] && exit 1
+if [ "${1}" != "up" ]; then
+	echo "usage: ${pgm} up"
+	exit 1
+fi
 
-[ ! -r ${cbsd_workdir}/etc/k8s.conf ] && err 1 "${N1_COLOR}please install first: ${N2_COLOR}${cbsd_workdir}/etc/k8s.conf${N0_COLOR}"
+if [ ! -r ${cbsd_workdir}/etc/k8s.conf ]; then
+	${ECHO} "${N1_COLOR}please create first: ${N2_COLOR}${cbsd_workdir}/etc/k8s.conf${N0_COLOR}"
+	${ECHO} "${N1_COLOR} see example: ${N2_COLOR}/usr/local/cbsd/modules/k8s.d/etc/k8s.conf${N0_COLOR}"
+	exit 1
+fi
+
+set -e
 . ${cbsd_workdir}/etc/k8s.conf
+set +e
+
 #set -o xtrace
 
 if ! zpool list ${ZPOOL} > /dev/null 2>&1; then
@@ -52,7 +63,7 @@ fi
 
 TMP_MNT=$( zfs get -Hp -o value mountpoint ${ZFS_K8S} 2>/dev/null )
 if [ "${TMP_MNT}" != "${ZFS_K8S_MNT}" ]; then
-	printf "set mountpoint for ${ZFS_K8S}: ${TMP_MNT} -> ${ZFS_K8S_MNT}"
+	printf "set mountpoint for ${ZFS_K8S}: ${TMP_MNT} -> ${ZFS_K8S_MNT}: "
 	if ! zfs set mountpoint=${ZFS_K8S_MNT} ${ZFS_K8S}; then
 		echo "failed"
 		exit 1

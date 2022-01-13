@@ -12,15 +12,22 @@ created="TIMESTAMP DATE DEFAULT (datetime('now','localtime'))"
 
 cluster="TEXT DEFAULT \"k8s-bhyve.io\""
 master_hostname="TEXT DEFAULT \"master.k8s-bhyve.io\""
-#k8s_ver="TEXT DEFAULT \"v1.20.0-rc.0\""
-k8s_ver="TEXT DEFAULT \"v1.19.11\""
-etcd_ver="TEXT DEFAULT \"v3.4.14\""
-containerd_ver="TEXT DEFAULT \"1.4.3\""
-flannel_ver="TEXT DEFAULT \"v0.12.0\""
-coredns_ver="TEXT DEFAULT \"v1.8.0\""
-cri_tools_ver="TEXT DEFAULT \"v1.19.0\""
-runc_ver="TEXT DEFAULT \"v1.0.0-rc92\""
-cni_plugins_linux_ver="TEXT DEFAULT \"v0.8.7\""
+# https://github.com/kubernetes/kubernetes/releases
+k8s_ver="TEXT DEFAULT \"v1.23.1\""
+# https://github.com/etcd-io/etcd
+etcd_ver="TEXT DEFAULT \"v3.5.1\""
+# https://github.com/containerd/containerd/releases
+containerd_ver="TEXT DEFAULT \"1.5.9\""
+# https://github.com/flannel-io/flannel/releases
+flannel_ver="TEXT DEFAULT \"v0.16.1\""
+# https://github.com/coredns/coredns/releases
+coredns_ver="TEXT DEFAULT \"v1.8.6\""
+# https://github.com/kubernetes-sigs/cri-tools/releases
+cri_tools_ver="TEXT DEFAULT \"v1.22.0\""
+# https://github.com/opencontainers/runc/releases
+runc_ver="TEXT DEFAULT \"v1.0.3\""
+# https://github.com/containernetworking/plugins/releases
+cni_plugins_linux_ver="TEXT DEFAULT \"v1.0.1\""
 init_masters_ips="TEXT DEFAULT \"DHCP\""
 init_nodes_ips="TEXT DEFAULT \"DHCP\""
 vip="TEXT DEFAULT \"DHCP\""
@@ -66,7 +73,7 @@ workers="INTEGER DEFAULT 0"
 
 node_cidr="TEXT DEFAULT \"0\""
 clusteriprange="TEXT DEFAULT \"172.18.0.0/24\""
-container_engine="TEXT DEFAULT \"docker\""
+container_engine="TEXT DEFAULT \"containerd\""
 
 # extra IPs for server_ip, e.g. external balancer
 server_ip_extra="TEXT DEFAULT \"0\""

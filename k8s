@@ -7,14 +7,17 @@ MYARG="mode"
 MYOPTARG="${OPTARGS} checkip develop display dryrun gold header human k8s_name runasap"
 MYDESC="Operate with K8S cluster"
 CBSDMODULE="sys"
-ADDHELP="\
-
+ADDHELP="
 ${H3_COLOR}Description${N0_COLOR}:
 
   K8S module is for designed to be used with CBSD kubernetes cloud image.
   The module is a kubernetes cluster configurator that turns your CBSD
   into a kind of bhyve-based minikube. Multi-master and multi-worker cluster
   supported. PV can be configured from master side via NFSv4 (optional).
+
+  Hint: for the initial setup of the NFS server, you may find script useful:
+
+    /usr/local/cbsd/modules/k8s.d/scripts/install.sh
 
 ${H3_COLOR}Options${N0_COLOR}:
 
@@ -92,7 +95,7 @@ readconf k8s.conf
 
 . ${system}
 . ${strings}
-. ${distdir}/jcreate.subr	# for external_exec_master_script
+. ${subrdir}/jcreate.subr	# for external_exec_master_script
 
 [ -n "${ointerface}" ] && interface="${ointerface}"
 
@@ -114,9 +117,9 @@ if [ ${gold} -eq 1 ]; then
 	develop=1
 	VM_OS_PROFILE="cloud-ubuntuserver-amd64-20.04"
 	IMGTYPE="md"
-	master_vm_imgsize="5g"
+	master_vm_imgsize="6g"
 else
-	VM_OS_PROFILE="cloud-kubernetes-20"
+	VM_OS_PROFILE="cloud-kubernetes-23"
 	IMGTYPE="zvol"
 fi
 
@@ -708,9 +711,9 @@ init_upfile()
 		esac
 
 		if [ -z "${pv_spec_nfs_path}" -o "${pv_spec_nfs_path}" = "0" ]; then
-			#pv_spec_nfs_path="${ZFS_K8S_PV_ROOT_MNT}/${k8s_name}"
+			pv_spec_nfs_path="${ZFS_K8S_PV_ROOT_MNT}/${k8s_name}"
 			# V4-related path is: /<clustername>
-			pv_spec_nfs_path="/${k8s_name}"
+			#pv_spec_nfs_path="/${k8s_name}"
 			cbsdsqlrw ${_dbpath} "UPDATE k8s SET pv_spec_nfs_path=\"${pv_spec_nfs_path}\" WHERE k8s_name=\"${k8s_name}\""
 		fi
 

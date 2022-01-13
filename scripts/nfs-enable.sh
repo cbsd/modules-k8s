@@ -30,7 +30,7 @@ nfsuserd_flags=" -manage-gids" \
 rpcbind_flags="-h ${bindip}" \
 rpcbind_enable="YES" > /dev/null 2>&1
 
-for i in mountd nfsuserd nfsd rpcbind lockd; do
+for i in mountd nfsuserd rpcbind lockd nfsd; do
 	echo "   * restart ${i} service..."
 	/usr/sbin/service ${i} restart > /dev/null 2>&1
 done
