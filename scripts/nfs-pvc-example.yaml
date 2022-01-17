@@ -1,3 +1,4 @@
+---
 # accessmode:
 # ReadWriteOnce - The volume can be mounted for reading and writing to one pod.
 # ReadOnlyMany - The volume can be mounted on multiple pods in read-only mode.
@@ -9,7 +10,6 @@ kind: PersistentVolumeClaim
 metadata:
   name: nfs-pvc
 spec:
-  storageClassName: nfs
   accessModes:
     - ReadWriteMany
   resources:

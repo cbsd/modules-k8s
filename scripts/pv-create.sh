@@ -62,6 +62,8 @@ else
 	echo "already mounted" >> ${LOGFILE}
 fi
 
+chmod 0777 ${ZFS_K8S_PV_CLUSTER_MNT}
+
 if ! zfs list ${ZFS_K8S_PV_CLUSTER} > /dev/null 2>&1; then
 	echo "no zfs: ${ZFS_K8S_PV_CLUSTER}" >> ${LOGFILE}
 	exit 1

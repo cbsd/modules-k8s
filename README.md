@@ -16,3 +16,11 @@ Quick start:
   `cbsd k8s mode=init`
 
   Refer to the documentation page: https://www.bsdstore.ru/en/12.x/wf_k8s_ssi.html
+
+
+# play with K8S
+
+kubectl run my-shell --rm -i --tty --image ubuntu -- bash
+when the pod is running: 
+kubectl attach my-shell -c my-shell -i -t
+

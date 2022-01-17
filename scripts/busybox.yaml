@@ -1,5 +1,6 @@
 # kubectl apply -f 
 # kubectl exec -ti busybox -- nslookup kubernetes.default
+# kubectl exec -ti busybox -- sh
 apiVersion: v1
 kind: Pod
 metadata:
