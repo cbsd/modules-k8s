@@ -39,19 +39,21 @@ ${H3_COLOR}Options${N0_COLOR}:
                      default=0.
 
   cluster           - cluster name
-  master_vm_cpus    - set vcpu for master node (default: 2)
-  master_vm_ram     - set vm_ram for master node (default: 2g)
-  master_vm_imgsize - set size of virtual disk for master node (default: 20g)
-  worker_vm_cpus    - set vcpu for worker node (default: 1)
-  worker_vm_ram     - set vm_ram for worker node (default: 1g)
-  worker_vm_imgsize - set size of virtual disk for worker node (default: 20g)
-  init_masters      - number of master, short alias for init_masters_ips=\"DHCP DHCP DHCP DHCP\"
-  init_workers      - number of workers, short alias for init_workers_ips=\"DHCP DHCP DHCP DHCP\"
-  flannel_net       - flannel internal docker/pod subnet
-  kubelet_master    - Install kubelet on master nodes to combine master+worker role in single env
-  server_dns        - extra dns names for cluster, comma-separated when multiple
-  server_kubeconfig - set kubeconfig server to alt name
-  node_cidr         - alternative CBSD IP POOL for DHCP, e.g: 10.10.0.0/24
+  master_vm_cpus    - set vcpu for master node (default: 2);
+  master_vm_ram     - set vm_ram for master node (default: 2g);
+  master_vm_imgsize - set size of virtual disk for master node (default: 20g);
+  ntp_servers       - list of NTP servers - local (on the hoster) NTP server are highly recommended!,
+                        default: 'pool.ntp.org'. Can be list: '0.europe.pool.ntp.org 2.europe.pool.ntp.org 3.europe.pool.ntp.org';
+  worker_vm_cpus    - set vcpu for worker node (default: 1);
+  worker_vm_ram     - set vm_ram for worker node (default: 1g);
+  worker_vm_imgsize - set size of virtual disk for worker node (default: 20g);
+  init_masters      - number of master, short alias for init_masters_ips=\"DHCP DHCP DHCP DHCP\";
+  init_workers      - number of workers, short alias for init_workers_ips=\"DHCP DHCP DHCP DHCP\";
+  flannel_net       - flannel internal docker/pod subnet;
+  kubelet_master    - Install kubelet on master nodes to combine master+worker role in single env;
+  server_dns        - extra dns names for cluster, comma-separated when multiple;
+  server_kubeconfig - set kubeconfig server to alt name;
+  node_cidr         - alternative CBSD IP POOL for DHCP, e.g: 10.10.0.0/24;
 
 ${H3_COLOR}Examples${N0_COLOR}:
 
@@ -79,7 +81,7 @@ develop=0
 runasap=
 init_masters=
 init_workers=
-
+ntp_servers=
 ip4_gw=
 interface=
 init_masters_ips=
@@ -90,6 +92,7 @@ init_masters_ips=
 [ -n "${interface}" ] && ointerface="${interface}"
 [ -n "${init_masters_ips}" ] && oinit_masters_ips="${init_masters_ips}"
 [ -n "${runasap}" ] && orunasap="${runasap}"
+[ -n "${ntp_servers}" ] && ontp_servers="${ontp_servers}"
 
 readconf bhyve-default-default.conf
 readconf k8s.conf
@@ -110,7 +113,10 @@ if [ -z "${worker_interface}" ]; then
 else
 	oworker_interface="${worker_interface}"
 fi
-
+if [ -z "${ntp_servers}" -a -z "${ontp_servers}" ]; then
+	ntp_servers="pool.ntp.org"
+	ontp_servers="pool.ntp.org"
+fi
 [ -z "${display}" ] && display="k8s_name,cluster,masters,workers,pv_enable"
 [ -z "${header}" ] && header=1
 
@@ -786,6 +792,10 @@ init_upfile()
 		done
 	fi
 
+	if [ -z "${ntp_servers}" -a -n "${oserver_dns}" ]; then
+		ntp_servers="${ontp_servers}"
+	fi
+
 	# get last IP octet as VRID
 	vrid=${vip#*.*.*.}
 	eval $( ${miscdir}/sipcalc ${vrid}/24 )
@@ -799,7 +809,6 @@ init_upfile()
 
 	# TODO:
 	# SERVER_DNS += $hostname/fqdn - master1.k8s-bhyve.io
-
 
 	${CAT_CMD} > ${_dstdir}/bootstrap.config <<EOF
 CLUSTER="${cluster}"
@@ -836,6 +845,7 @@ POD_CIDR="${flannel_net}"
 CLUSTERIPRANGE="${clusteriprange}"
 NODE_NETWORK="${_network_address}"
 CONTAINER_ENGINE="${container_engine}"
+NTP_SERVERS="${ntp_servers}"
 EOF
 
 	vrid=0
