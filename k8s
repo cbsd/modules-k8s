@@ -48,6 +48,7 @@ ${H3_COLOR}Options${N0_COLOR}:
   init_masters      - number of master, short alias for init_masters_ips=\"DHCP DHCP DHCP DHCP\"
   init_workers      - number of workers, short alias for init_workers_ips=\"DHCP DHCP DHCP DHCP\"
   flannel_net       - flannel internal docker/pod subnet
+  kubelet_master    - Install kubelet on master nodes to combine master+worker role in single env
   server_dns        - extra dns names for cluster, comma-separated when multiple
   server_kubeconfig - set kubeconfig server to alt name
   node_cidr         - alternative CBSD IP POOL for DHCP, e.g: 10.10.0.0/24
