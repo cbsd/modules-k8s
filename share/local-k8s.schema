@@ -29,7 +29,8 @@ runc_ver="TEXT DEFAULT \"v1.0.3\""
 # https://github.com/containernetworking/plugins/releases
 cni_plugins_linux_ver="TEXT DEFAULT \"v1.0.1\""
 init_masters_ips="TEXT DEFAULT \"DHCP\""
-init_nodes_ips="TEXT DEFAULT \"DHCP\""
+init_masters_ips2="TEXT DEFAULT \"0\""
+init_worker_ips="TEXT DEFAULT \"DHCP\""
 vip="TEXT DEFAULT \"DHCP\""
 dns_ip="TEXT DEFAULT \"172.18.0.2\""
 coredns_enable="INTEGER DEFAULT 1"
@@ -56,8 +57,8 @@ worker_vm_ram="TEXT DEFAULT \"1g\""
 worker_vm_cpus="INTEGER DEFAULT 1"
 worker_vm_imgsize="TEXT DEFAULT \"20g\""
 
-master_interface="TEXT DEFAULT \"auto\""
-worker_interface="TEXT DEFAULT \"auto\""
+master_interfaces="TEXT DEFAULT \"auto\""
+worker_interfaces="TEXT DEFAULT \"auto\""
 
 flannel_net="TEXT DEFAULT \"172.17.0.0/16\""
 flannel_mtu="TEXT DEFAULT \"1450\""
@@ -83,6 +84,15 @@ ntp_servers="TEXT DEFAULT \"pool.ntp.org\""
 
 # callback url
 callback_url="TEXT DEFAULT \"0\""
+
+# second interface
+ci_interface2="TEXT DEFAULT \"0\""
+
+# second IP address (cloud-init)
+ci_ip4_addr2="TEXT DEFAULT \"0\""
+
+# GW gw for second IP (cloud-init)
+ci_gw42="TEXT DEFAULT \"0\""
 
 CONSTRAINT=
 INITDB=

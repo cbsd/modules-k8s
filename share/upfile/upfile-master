@@ -9,7 +9,10 @@ bhyve_%%JNAME%%()
 	ci_jname="${jname}"
 	ci_fqdn="${fqdn}"
 	ci_ip4_addr="${ip4_addr}"
-	interface="%%MASTER_INTERFACE%%"
+	interface="%%MASTER_INTERFACE1%%"
+	ci_interface2="%%MASTER_INTERFACE2%%"
+	ci_ip4_addr2="%%CI_IP4_ADDR2%%"
+	ci_gw42="%%CI_GW42%%"
 }
 postcreate_%%JNAME%%()
 {

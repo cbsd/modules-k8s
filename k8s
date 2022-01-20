@@ -22,6 +22,9 @@ ${H3_COLOR}Description${N0_COLOR}:
 ${H3_COLOR}Options${N0_COLOR}:
 
   checkip=           - check IP when upfile created, default - 1, check.
+  ci_interface2=     - uplink for second interface if neccessary, 0 - disabled, by default;
+  ci_ip4_addr2=      - second interface (on ci_interface2) IP address, 0 - disabled, by default;
+  ci_gw42=           - gateway for second interface/addr (on ci_interface2), 0 - disabled, by default;
   develop=           - for develop build only.
   display=           - list by comma for column in 'mode=list',
                        default: 'name,pkg_vm_cpus,pkg_vm_ram,pkg_vm_disk'.
@@ -54,18 +57,21 @@ ${H3_COLOR}Options${N0_COLOR}:
   server_dns        - extra dns names for cluster, comma-separated when multiple;
   server_kubeconfig - set kubeconfig server to alt name;
   node_cidr         - alternative CBSD IP POOL for DHCP, e.g: 10.10.0.0/24;
+  worker_interfaces - map 1:1 init_worker_ips to uplink interfaces;
+  master_interfaces - map 1:1 init_masters_ips to uplink interfaces;
 
 ${H3_COLOR}Examples${N0_COLOR}:
 
   init example:
 
     cbsd k8s mode=init k8s_name=k1 init_masters_ips=\"10.0.0.2\" vip=DHCP
-    cbsd k8s mode=init k8s_name=k1 init_masters_ips=\"10.0.0.2\" init_nodes_ips=\"10.0.0.101 10.0.0.102 10.0.0.103\" vip=10.0.0.100 worker_vm_ram=8g worker_vm_cpus=8 worker_imgsize=80g
-    cbsd k8s mode=init k8s_name=k2 init_masters_ips=\"DHCP DHCP DHCP\" init_nodes_ips=\"DHCP DHCP DHCP\" vip=DHCP cluster=\"k8s-cloud.com\"
-    cbsd k8s mode=init k8s_name=k3 init_masters_ips=\"DHCP DHCP DHCP\" init_nodes_ips=\"DHCP DHCP DHCP\" vip=DHCP cluster=\"k8s-cloud.com\" master_interface=\"cbsdvale_vale1\" worker_interface=\"cbsdvale_vale1\" pv_enable=1 pv_spec_nfs_path=/k8s-nfs-share pv_spec_server=192.168.0.1
+    cbsd k8s mode=init k8s_name=k1 init_masters_ips=\"10.0.0.2\" init_worker_ips=\"10.0.0.101 10.0.0.102 10.0.0.103\" vip=10.0.0.100 worker_vm_ram=8g worker_vm_cpus=8 worker_imgsize=80g
+    cbsd k8s mode=init k8s_name=k2 init_masters_ips=\"DHCP DHCP DHCP\" init_worker_ips=\"DHCP DHCP DHCP\" vip=DHCP cluster=\"k8s-cloud.com\"
+    cbsd k8s mode=init k8s_name=k3 init_masters_ips=\"DHCP DHCP DHCP\" init_worker_ips=\"DHCP DHCP DHCP\" vip=DHCP cluster=\"k8s-cloud.com\" master_interfaces=\"cbsdvale_vale1\" worker_interfaces=\"cbsdvale_vale1\" pv_enable=1 pv_spec_nfs_path=/k8s-nfs-share pv_spec_server=192.168.0.1
+    cbsd k8s mode=init k8s_name=k1 init_masters_ips=\"10.0.0.2\" vip=DHCP ci_interface2="bridge1" init_masters_ips2="2a01:4f8:272:5cee::4" ci_gw42="2a01:4f8:272:5cee::3"
 
   for gold image:
-    cbsd k8s mode=init k8s_name=gold init_masters_ips=10.0.0.28 master_interface="cbsdvale_vale1" worker_interface="cbsdvale_vale1" ip4_gw=10.0.0.1 develop=1 gold=1
+    cbsd k8s mode=init k8s_name=gold init_masters_ips=10.0.0.28 master_interfaces="cbsdvale_vale1" worker_interfaces="cbsdvale_vale1" ip4_gw=10.0.0.1 develop=1 gold=1
     cbsd k8s mode=init_upfile k8s_name="gold" develop=1 gold=1
 
 "
@@ -85,14 +91,23 @@ ntp_servers=
 ip4_gw=
 interface=
 init_masters_ips=
+init_masters_ips2=
+ci_interface2=
+ci_ip4_addr2=
+ci_gw42=
 
 . ${cbsdinit}
 
 [ -n "${ip4_gw}" ] && oip4_gw="${ip4_gw}"
 [ -n "${interface}" ] && ointerface="${interface}"
 [ -n "${init_masters_ips}" ] && oinit_masters_ips="${init_masters_ips}"
+[ -n "${init_masters_ips2}" ] && oinit_masters_ips2="${init_masters_ips2}"
 [ -n "${runasap}" ] && orunasap="${runasap}"
 [ -n "${ntp_servers}" ] && ontp_servers="${ontp_servers}"
+
+[ -n "${ci_interface2}" ] && oci_interface2="${ci_interface2}"
+[ -n "${ci_ip4_addr2}" ] && oci_ip4_addr2="${ci_ip4_addr2}"
+[ -n "${ci_gw42}" ] && oci_gw42="${ci_gw42}"
 
 readconf bhyve-default-default.conf
 readconf k8s.conf
@@ -103,15 +118,15 @@ readconf k8s.conf
 
 [ -n "${ointerface}" ] && interface="${ointerface}"
 
-if [ -z "${master_interface}" ]; then
-	omaster_interface="${interface}"
+if [ -z "${master_interfaces}" ]; then
+	master_interfaces="${interface}"
 else
-	omaster_interface="${master_interface}"
+	omaster_interfaces="${master_interfaces}"
 fi
-if [ -z "${worker_interface}" ]; then
-	oworker_interface="${interface}"
+if [ -z "${worker_interfaces}" ]; then
+	worker_interfaces="${interface}"
 else
-	oworker_interface="${worker_interface}"
+	oworker_interfaces="${worker_interfaces}"
 fi
 if [ -z "${ntp_servers}" -a -z "${ontp_servers}" ]; then
 	ntp_servers="pool.ntp.org"
@@ -344,6 +359,14 @@ init_k8s()
 		[ ! -d "${k8s_sys_skel_dir}/${i}" -a -d "${DIST_MODULE_PATH}/share/k8s-system-default/${i}" ] && ${RSYNC_CMD} -a ${DIST_MODULE_PATH}/share/k8s-system-default/${i} ${k8s_sys_skel_dir}/
 	done
 
+	[ -n "${oci_interface2}" ] && ci_interface2="${ci_interface2}"
+	[ -n "${oci_ip4_addr2}" ] && ci_ip4_addr2="${ci_ip4_addr2}"
+	[ -n "${oci_gw42}" ] && ci_gw42="${ci_gw42}"
+
+	[ -z "${ci_interface2}" ] && ci_interface2="0"
+	[ -z "${ci_ip4_addr2}" ] && ci_ip4_addr2="0"
+	[ -z "${ci_gw42}" ] && ci_gw42="0"
+
 	[ -z "${vpc}" ] && vpc="0"
 
 	/usr/local/bin/cbsd ${miscdir}/updatesql ${_dbpath} ${DIST_MODULE_PATH}/share/local-k8s.schema k8s
@@ -372,9 +395,9 @@ init_k8s()
 	done
 
 	# optional
-	if [ -z "${init_nodes_ips}" ]; then
-		init_nodes_ips="0"
-		cbsdsqlrw ${_dbpath} "UPDATE k8s SET init_nodes_ips=\"${init_nodes_ips}\" WHERE k8s_name=\"${k8s_name}\""
+	if [ -z "${init_worker_ips}" ]; then
+		init_worker_ips="0"
+		cbsdsqlrw ${_dbpath} "UPDATE k8s SET init_worker_ips=\"${init_worker_ips}\" WHERE k8s_name=\"${k8s_name}\""
 	fi
 	if [ -z "${cluster}" ]; then
 		cluster="k8s-bhyve.io"
@@ -429,7 +452,7 @@ init_k8s()
 	cbsdsqlrw ${_dbpath} "UPDATE k8s SET masters=\"${masters}\" WHERE k8s_name=\"${k8s_name}\""
 
 	if [ -z "${init_workers}" ]; then
-		for i in ${init_nodes_ips}; do
+		for i in ${init_worker_ips}; do
 			workers=$(( workers + 1 ))
 		done
 	else
@@ -475,7 +498,7 @@ init_upfile()
 {
 	local _keyfile="${MODULE_PATH}/${k8s_name}_id_ed25519"
 	local _keyfile_pub="${MODULE_PATH}/${k8s_name}_authorized_keys"
-	local _res _ret _init_masters_ips_tmp _init_nodes_ips_tmp _dstdir
+	local _res _ret _init_masters_ips_tmp _init_worker_ips_tmp _dstdir
 
 	while getopts "d:" opt; do
 		case "${opt}" in
@@ -604,15 +627,15 @@ init_upfile()
 		${ECHO} "${W1_COLOR}${CBSD_APP} warning: ${N1_COLOR}valid number of master: ${N2_COLOR}1,3,5,7,..${N1_COLOR} Hope this OK for you${N0_COLOR}" 1>&2
 	fi
 
-	_init_nodes_ips_tmp=
+	_init_worker_ips_tmp=
 
-	[ "${init_nodes_ips}" = "0" ] && unset init_nodes_ips
+	[ "${init_worker_ips}" = "0" ] && unset init_worker_ips
 
-	if [ -z "${init_nodes_ips}" ]; then
+	if [ -z "${init_worker_ips}" ]; then
 		init_nodes_num=0
 	else
 		init_nodes_num=0
-		for i in ${init_nodes_ips}; do
+		for i in ${init_worker_ips}; do
 
 			case "${i}" in
 				[Dd][Hh][Cc][Pp])
@@ -623,11 +646,11 @@ init_upfile()
 						_res=$( dhcpd )
 						_ret=$?
 					fi
-					[ ${_ret} -eq 2 ] && err 1 "${N1_COLOR}no free IP address for DHCP in nodeippool for: ${N2_COLOR}init_nodes_ips${N0_COLOR}"
-					if [ -z "${_init_nodes_ips_tmp}" ]; then
-						_init_nodes_ips_tmp="${_res}"
+					[ ${_ret} -eq 2 ] && err 1 "${N1_COLOR}no free IP address for DHCP in nodeippool for: ${N2_COLOR}init_worker_ips${N0_COLOR}"
+					if [ -z "${_init_worker_ips_tmp}" ]; then
+						_init_worker_ips_tmp="${_res}"
 					else
-						_init_nodes_ips_tmp="${_init_nodes_ips_tmp} ${_res}"
+						_init_worker_ips_tmp="${_init_worker_ips_tmp} ${_res}"
 					fi
 					${ECHO} "   ${N1_COLOR}${CBSD_APP} check node ip: ${i} --> ${N2_COLOR}${_res}${N0_COLOR}" 1>&2
 					;;
@@ -645,10 +668,10 @@ init_upfile()
 							;;
 					esac
 					[ ${checkip} -eq 1 ] && test_for_ip "node ip" ${i}
-					if [ -z "${_init_nodes_ips_tmp}" ]; then
-						_init_nodes_ips_tmp="${_res}"
+					if [ -z "${_init_worker_ips_tmp}" ]; then
+						_init_worker_ips_tmp="${_res}"
 					else
-						_init_nodes_ips_tmp="${_init_nodes_ips_tmp} ${_res}"
+						_init_worker_ips_tmp="${_init_worker_ips_tmp} ${_res}"
 					fi
 					;;
 			esac
@@ -656,20 +679,20 @@ init_upfile()
 		done
 	fi
 
-	init_nodes_ips="${_init_nodes_ips_tmp}"
-	cbsdsqlrw ${_dbpath} "UPDATE k8s SET init_nodes_ips=\"${_init_nodes_ips_tmp}\" WHERE k8s_name=\"${k8s_name}\""
+	init_worker_ips="${_init_worker_ips_tmp}"
+	cbsdsqlrw ${_dbpath} "UPDATE k8s SET init_worker_ips=\"${_init_worker_ips_tmp}\" WHERE k8s_name=\"${k8s_name}\""
 
 	_prev_net=0
 
 	[ -n "${oip4_gw}" ] && ip4_gw="${oip4_gw}"
 
-	for src in vip init_nodes_ips init_masters_ips ip4_gw; do
+	for src in vip init_worker_ips init_masters_ips ip4_gw; do
 		eval i="\$$src"
 		eval $( ${miscdir}/sipcalc ${i}/24 )
 		if [ "${_prev_net}" = "0" ]; then
 			_prev_net="${_network_address}"
 		else
-			[ "${_prev_net}" != "${_network_address}" ] && err 1 "${W1_COLOR}${CBSD_APP} error: ${N1_COLOR} not same network. vip=, init_masters_ips, init_nodes_ips and ip4_gw= must be on the same subnet: ${N2_COLOR}${_prev_net} != ${src}:${_network_address}${N0_COLOR}"
+			[ "${_prev_net}" != "${_network_address}" ] && err 1 "${W1_COLOR}${CBSD_APP} error: ${N1_COLOR} not same network. vip=, init_masters_ips, init_worker_ips and ip4_gw= must be on the same subnet: ${N2_COLOR}${_prev_net} != ${src}:${_network_address}${N0_COLOR}"
 		fi
 	done
 
@@ -735,7 +758,7 @@ init_upfile()
 	fi
 
 	${SED_CMD} -Ees:%%INIT_MASTERS_IPS%%:"${init_masters_ips}":g \
-		-es:%%INIT_NODES_IPS%%:"${init_nodes_ips}":g \
+		-es:%%init_worker_ips%%:"${init_worker_ips}":g \
 		-es:%%VIP%%:"${vip}":g \
 		-es:%%PV_ENABLE%%:"${pv_enable}":g \
 		-es:%%PV_SPEC_NFS_PATH%%:"${pv_spec_nfs_path}":g \
@@ -824,7 +847,7 @@ RUNC_VER="${runc_ver}"
 INIT_MASTERS_NUM="${init_masters_num}"
 INIT_NODES_NUM="${init_nodes_num}"
 INIT_MASTERS_IPS="${init_masters_ips}"
-INIT_NODES_IPS="${init_nodes_ips}"
+init_worker_ips="${init_worker_ips}"
 VIP="${vip}"
 API_SERVER="${api_server}"
 API_SERVERS="${api_servers}"
@@ -850,8 +873,35 @@ EOF
 
 	vrid=0
 
-	[ -n "${omaster_interface}" ] && master_interface="${omaster_interface}"
-	[ -n "${oworker_interface}" ] && worker_interface="${oworker_interface}"
+	echo "C $init_masters_ips2 + $oinit_masters_ips2 "
+
+	[ -n "${omaster_interfaces}" ] && master_interfaces="${omaster_interfaces}"
+	[ -n "${oworker_interfaces}" ] && worker_interfaces="${oworker_interfaces}"
+	[ -n "${oinit_masters_ips2}" ] && init_masters_ips2="${oinit_masters_ips2}"
+
+	nic_num=0
+	master_interface1=0
+	master_interface2=0
+
+	[ -z "${ci_ip4_addr2}" ] && ci_ip4_addr2="0"
+	[ -z "${ci_gw42}" ] && ci_gw42="0"
+	[ -z "${init_masters_ips2}" ] && init_masters_ips2="0"
+
+	for i in ${master_interfaces}; do
+		nic_num=$(( nic_num +1 ))
+		case ${nic_num} in
+			1)
+				master_interface1="${i}"
+				;;
+			2)
+				master_interface2="${i}"
+				;;
+			*)
+				${ECHO} "${N1_COLOR}${CBSD_APP}: only two interface config support: ${N2_COLOR}${master_interfaces}${N0_COLOR}"
+				break
+				;;
+		esac
+	done
 
 	id=1
 	if [ ${gold} -eq 1 ]; then
@@ -873,7 +923,10 @@ EOF
 			-es:%%MASTER_VM_RAM%%:"${master_vm_ram}":g \
 			-es:%%MASTER_VM_CPUS%%:"${master_vm_cpus}":g \
 			-es:%%MASTER_VM_IMGSIZE%%:"${master_vm_imgsize}":g \
-			-es:%%MASTER_INTERFACE%%:"${master_interface}":g \
+			-es:%%MASTER_INTERFACE1%%:"${master_interface1}":g \
+			-es:%%MASTER_INTERFACE2%%:"${master_interface2}":g \
+			-es:%%CI_IP4_ADDR2%%:"${init_masters_ips2}":g \
+			-es:%%CI_GW42%%:"${ci_gw42}":g \
 			${DIST_MODULE_PATH}/share/upfile/upfile-master >> ${_dstdir}/CBSDfile
 		else
 			${SED_CMD} -Ees:%%JNAME%%:"${i}":g \
@@ -884,8 +937,12 @@ EOF
 			-es:%%MASTER_VM_RAM%%:"${master_vm_ram}":g \
 			-es:%%MASTER_VM_CPUS%%:"${master_vm_cpus}":g \
 			-es:%%MASTER_VM_IMGSIZE%%:"${master_vm_imgsize}":g \
-			-es:%%MASTER_INTERFACE%%:"${master_interface}":g \
-			-es:%%ROLE%%:master:g ${DIST_MODULE_PATH}/share/upfile/upfile-master >> ${_dstdir}/CBSDfile
+			-es:%%MASTER_INTERFACE1%%:"${master_interface1}":g \
+			-es:%%MASTER_INTERFACE2%%:"${master_interface2}":g \
+			-es:%%CI_IP4_ADDR2%%:"${init_masters_ips2}":g \
+			-es:%%CI_GW42%%:"${ci_gw42}":g \
+			-es:%%ROLE%%:master:g \
+			${DIST_MODULE_PATH}/share/upfile/upfile-master >> ${_dstdir}/CBSDfile
 		fi
 		id=$(( id + 1 ))
 	done
@@ -903,7 +960,7 @@ EOF
 			-es:%%WORKER_VM_RAM%%:"${worker_vm_ram}":g \
 			-es:%%WORKER_VM_CPUS%%:"${worker_vm_cpus}":g \
 			-es:%%WORKER_VM_IMGSIZE%%:"${worker_vm_imgsize}":g \
-			-es:%%WORKER_INTERFACE%%:"${worker_interface}":g \
+			-es:%%worker_interfaces%%:"${worker_interfaces}":g \
 			-es:%%ROLE%%:worker:g ${DIST_MODULE_PATH}/share/upfile/upfile-worker >> ${_dstdir}/CBSDfile
 			id=$(( id + 1 ))
 		done
@@ -923,8 +980,8 @@ log_dir="/var/log/k8s"
 [ ! -d "${log_dir}" ] && ${MKDIR_CMD} -p ${log_dir}
 
 [ -n "${oip4_gw}" ] && ip4_gw="${oip4_gw}"
-[ -n "${omaster_interface}" ] && master_interface="${omaster_interface}"
-[ -n "${oworker_interface}" ] && worker_interface="${oworker_interface}"
+[ -n "${omaster_interfaces}" ] && master_interfaces="${omaster_interfaces}"
+[ -n "${oworker_interfaces}" ] && worker_interfaces="${oworker_interfaces}"
 
 if [ -z "${ip4_gw}" -o "${ip4_gw}" = "0" ]; then
 	[ -n "${ci_gw4}" ] && ip4_gw="${ci_gw4}"
@@ -964,14 +1021,14 @@ if [ -n "${init_workers}" ]; then
 		err 1 "${N1_COLOR}${CBSD_APP}: init_workers: not a number: ${N2_COLOR}${init_workers}${N0_COLOR}"
 	fi
 	if [ ${init_workers} -eq 0 ]; then
-		init_nodes_ips=
+		init_worker_ips=
 	else
 		init_workers_ips=
 		for i in $( ${JOT_CMD} ${init_workers} ); do
-			if [ -z "${init_nodes_ips}" ]; then
-				init_nodes_ips="DHCP"
+			if [ -z "${init_worker_ips}" ]; then
+				init_worker_ips="DHCP"
 			else
-				init_nodes_ips="${init_nodes_ips} DHCP"
+				init_worker_ips="${init_worker_ips} DHCP"
 			fi
 		done
 	fi
