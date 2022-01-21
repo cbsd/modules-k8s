@@ -4,17 +4,22 @@ DIST_MODULE_PATH="${distmoduledir}/k8s.d"
 . ${DIST_MODULE_PATH}/share/k8s.conf
 OPTARGS="${MYCOL} init_masters init_workers"
 MYARG="mode"
-MYOPTARG="display header active human k8s_name dryrun checkip develop runasap header"
+#MYOPTARG="display header active human k8s_name dryrun checkip develop runasap header email"
+MYOPTARG="display header active human k8s_name dryrun checkip develop runasap header worker_vm_ram master_vm_ram master_vm_cpus master_vm_imgsize email callback init_masters init_workers worker_vm_cpus worker_vm_imgsize pv_enable"
 MYDESC="Operate with K8S cluster"
 CBSDMODULE="sys"
-ADDHELP="\
+ADDHELP="
+
+An example of a more capacious environment preparation for running a kubernetes cluster.
+
 "
 
 EXTHELP="wf_k8s"
 MODULE_PATH="${dbdir}/k8s"
 DIST_MODULE_PATH="${distmoduledir}/k8s.d"
 # 20 vale max - adjust dev.netmap.buf_size = 24576
-MY_RANGE=$( ${SEQ_CMD} 10 30 | ${XARGS_CMD} )
+# Max K8S clusters
+MY_RANGE=$( ${SEQ_CMD} 0 20 | ${XARGS_CMD} )
 
 dbpath="${MODULE_PATH}/k8world.sqlite"
 runasap=0
@@ -80,23 +85,63 @@ case "${mode}" in
 		MYID=
 		for i in ${MY_RANGE}; do
 			# check for local iface only
-			_res=$( checkip check=3 ip="10.0.${i}.1" )
+			_res=$( checkip check=3 ip="172.16.${i}.1" )
 			_ret=$?
 			if [ ${_ret} -eq 1 ]; then
-				MYNET="10.0.${i}"
+				MYNET="172.16.${i}"
 				MYID="${i}"
 				break
 			fi
 		done
 		[ -z "${MYNET}" ] && err 1 "no such free net"
 		echo "my net: ${MYNET}.0/24, ID: ${MYID}"
-		${IFCONFIG_CMD} vether${MYID} create
-		${IFCONFIG_CMD} vether${MYID} 10.0.${MYID}.1/24 up
-		valecfg mode=add name=vale${MYID}
-		/usr/sbin/valectl -h vale${MYID}:vether${MYID}
+
+		# vale section: 2021-01 notes: need more test for stability
+		#${IFCONFIG_CMD} vether${MYID} create
+		#${IFCONFIG_CMD} vether${MYID} 172.16.${MYID}.1/24 up
+		#valecfg mode=add name=vale${MYID}
+		#/usr/sbin/valectl -h vale${MYID}:vether${MYID}
+		#echo "[debug]: k8s mode=init ${pass_cmd} ip4_gw=172.16.${MYID}.1 node_cidr=172.16.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}"
+		#cbsdsqlrw ${dbpath} "INSERT INTO k8world ( k8s_name,node_cidr,net_id ) VALUES ( \"${k8s_name}\", \"${MYNET}\",\"${MYID}\" )"
+		#k8s mode=init ${pass_cmd} ip4_gw=172.16.${MYID}.1 node_cidr=172.16.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}
+
+		# bridge section
+		int_br="${MYID}"
+		ext_br=$(( int_br + 1 ))
+
+		int_bridge_name="bridge${int_br}"
+		ext_bridge_name="bridge${ext_br}"
+
+		int_br_ip="172.16.${MYID}.1"
+		ext_br_ip=$( dhcpdv6 )
+		ext_ip=$( dhcpdv6 )
+
+		# check for ext_ip/ext_br_ip IP here!!
+		# to post/pre hooks + destroy
+
+		IPFW_RULE=$(( MYID + 1024 ))
+
+		echo "/sbin/ipfw -q add ${IPFW_RULE} deny ip from ${ext_br_ip} to any via igb0"
+		echo "/sbin/ipfw -q add ${IPFW_RULE} deny ip from any to ${ext_br_ip} via igb0"
+		/sbin/ipfw -q add ${IPFW_RULE} deny ip from ${ext_br_ip} to any via igb0
+		/sbin/ipfw -q add ${IPFW_RULE} deny ip from any to ${ext_br_ip} via igb0
+
+		${IFCONFIG_CMD} ${int_bridge_name} create description k8s-${MYID}-int
+		${IFCONFIG_CMD} ${int_bridge_name} ${int_br_ip}/24 up
+
+		${IFCONFIG_CMD} ${ext_bridge_name} create description k8s-${MYID}-int
+		${IFCONFIG_CMD} ${ext_bridge_name} inet6 ${ext_br_ip}/64 up
+
+		# to post/pre hooks + destroy
+		/sbin/route -6 add ${ext_ip} -interface ${ext_bridge_name}
+
 		cbsdsqlrw ${dbpath} "INSERT INTO k8world ( k8s_name,node_cidr,net_id ) VALUES ( \"${k8s_name}\", \"${MYNET}\",\"${MYID}\" )"
-		echo "[debug]: k8s mode=init ${pass_cmd} ip4_gw=10.0.${MYID}.1 node_cidr=10.0.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}"
-		k8s mode=init ${pass_cmd} ip4_gw=10.0.${MYID}.1 node_cidr=10.0.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}
+
+		echo "cbsd k8s mode=init k8s_name=\"${k8s_name}\" init_masters_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces=\"${int_bridge_name} ${ext_bridge_name}\" init_masters_ips2=\"${ext_ip}\" ci_gw42=\"${ext_br_ip}\" develop=0 server_ip_extra=\"${ext_ip}\" server_kubeconfig=\"[${ext_ip}]\" runasap=${runasap} email=\"${email}\"" >> /tmp/k8world.log
+		k8s mode=init k8s_name="${k8s_name}" init_masters_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces="${int_bridge_name} ${ext_bridge_name}" init_masters_ips2="${ext_ip}" ci_gw42="${ext_br_ip}" develop=0 server_ip_extra="${ext_ip}" server_kubeconfig="[${ext_ip}]" runasap=${runasap} email="${email}"
+
+		#echo "[debug]: k8s mode=init ${pass_cmd} ip4_gw=${int_br_ip} node_cidr=172.16.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}"
+		#k8s mode=init ${pass_cmd} ip4_gw=172.16.${MYID}.1 node_cidr=172.16.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}
 		;;
 	list)
 		list_k8world | ${COLUMN_CMD} -t
@@ -105,19 +150,42 @@ case "${mode}" in
 		[ -z "${k8s_name}" ] && err 1 "${N1_COLOR}${CBSD_APP} ${N2_COLOR}k8s_name= ${N1_COLOR}is mandatory${N0_COLOR}"
 		MYID=$( cbsdsqlro ${dbpath} "SELECT net_id FROM k8world WHERE k8s_name=\"${k8s_name}\" LIMIT 1" )
 		[ -z "${MYID}" ] && err 1 "${N1_COLOR}${CBSD_APP}: no such record: ${N2_COLOR}${k8s_name}${N0_COLOR}"
-		# stop VM first
-		#cluster_db="${MODULE_PATH}/${k8s_name}.sqlite"
-		#[ ! -r ${cluster_db} ] && err 1 "${N1_COLOR}${CBSD_APP}: no such cluster db for ${k8s_name}: ${N2_COLOR}${cluster_db}${N0_COLOR}"
-		#bhyve_list=$( cbsdsqlro ${cluster_db} "SELECT bhyve_list FROM k8s WHERE k8s_name=\"${k8s_name}\" LIMIT 1" )
-		#if [ -n "${bhyve_list}" -a "${bhyve_list}" != "0" ]; then
-		#	${ECHO} "${N1_COLOR}${CBSD_APP} destroy cluster: destroy VM: ${N2_COLOR}${bhyve_list}${N0_COLOR}"
-		#	for i in ${bhyve_list}; do
-		#		bremove jname="${i}"
-		#	done
-		#fi
+		 stop VM first
+		cluster_db="${MODULE_PATH}/${k8s_name}.sqlite"
+		[ ! -r ${cluster_db} ] && err 1 "${N1_COLOR}${CBSD_APP}: no such cluster db for ${k8s_name}: ${N2_COLOR}${cluster_db}${N0_COLOR}"
+		bhyve_list=$( cbsdsqlro ${cluster_db} "SELECT bhyve_list FROM k8s WHERE k8s_name=\"${k8s_name}\" LIMIT 1" )
+		if [ -n "${bhyve_list}" -a "${bhyve_list}" != "0" ]; then
+			${ECHO} "${N1_COLOR}${CBSD_APP} destroy cluster: destroy VM: ${N2_COLOR}${bhyve_list}${N0_COLOR}"
+			for i in ${bhyve_list}; do
+				bremove jname="${i}"
+			done
+		fi
 		k8s mode=destroy k8s_name="${k8s_name}"
-		${IFCONFIG_CMD} vether${MYID} > /dev/null 2>&1 && ${IFCONFIG_CMD} vether${MYID} destroy > /dev/null 2>&1
-		valecfg mode=destroy name=vale${MYID}
+
+		# VALE part
+		#${IFCONFIG_CMD} vether${MYID} > /dev/null 2>&1 && ${IFCONFIG_CMD} vether${MYID} destroy > /dev/null 2>&1
+		#valecfg mode=destroy name=vale${MYID}
+
+		echo "Destroy K8S ${k8s_name} with ID: ${MYID}"
+		k8s mode=destroy k8s_name="${k8s_name}"
+
+		int_br="${MYID}"
+		ext_br=$(( int_br + 1 ))
+
+		int_bridge_name="bridge${int_br}"
+		ext_bridge_name="bridge${ext_br}"
+
+		for i in ${int_bridge_name} ${ext_bridge_name}; do
+			${IFCONFIG_CMD} ${i} > /dev/null 2>&1
+			[ $? -eq 0 ] && ${IFCONFIG_CMD} ${i} destroy > /dev/null 2>&1
+		done
+
+		IPFW_RULE=$(( MYID + 1024 ))
+
+		/sbin/ipfw -q delete ${IPFW_RULE} > /dev/null 2>&1
+		# route del
+		# роут сам удаляется при уничтожении интерфейса, но можно подстраховаться и сносить его до.
+
 		${ECHO} "${N1_COLOR}k8s removed: ${N2_COLOR}${k8s_name}${N0_COLOR}"
 		cbsdsqlrw ${dbpath} "DELETE FROM k8world WHERE k8s_name=\"${k8s_name}\""
 		;;

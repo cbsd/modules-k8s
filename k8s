@@ -98,6 +98,8 @@ ci_gw42=
 
 . ${cbsdinit}
 
+echo "EXEC [$*]" >> /tmp/k8s.log
+
 [ -n "${ip4_gw}" ] && oip4_gw="${ip4_gw}"
 [ -n "${interface}" ] && ointerface="${interface}"
 [ -n "${init_masters_ips}" ] && oinit_masters_ips="${init_masters_ips}"
@@ -356,7 +358,12 @@ init_k8s()
 	[ ! -d "${k8s_sys_skel_dir}" ] && ${MKDIR_CMD} -p ${k8s_sys_skel_dir}
 
 	for i in ${_system_dir}; do
-		[ ! -d "${k8s_sys_skel_dir}/${i}" -a -d "${DIST_MODULE_PATH}/share/k8s-system-default/${i}" ] && ${RSYNC_CMD} -a ${DIST_MODULE_PATH}/share/k8s-system-default/${i} ${k8s_sys_skel_dir}/
+		if [ ! -d "${k8s_sys_skel_dir}/${i}" -a -d "${DIST_MODULE_PATH}/share/k8s-system-default/${i}" ]; then
+			echo "${RSYNC_CMD} -a ${DIST_MODULE_PATH}/share/k8s-system-default/${i} ${k8s_sys_skel_dir}/"
+			${RSYNC_CMD} -a ${DIST_MODULE_PATH}/share/k8s-system-default/${i} ${k8s_sys_skel_dir}/
+		else
+			echo "No such share? [${DIST_MODULE_PATH}/share/k8s-system-default/${i}] :: ${RSYNC_CMD} -a ${DIST_MODULE_PATH}/share/k8s-system-default/${i} ${k8s_sys_skel_dir}/"
+		fi
 	done
 
 	[ -n "${oci_interface2}" ] && ci_interface2="${ci_interface2}"
@@ -766,6 +773,7 @@ init_upfile()
 		-es:%%PV_SPEC_CAPACITY_STORAGE%%:"${pv_spec_capacity_storage}":g \
 		-es:%%IP4_GW%%:"${ip4_gw}":g \
 		-es:%%DEVELOP%%:"${develop}":g \
+		-es#%%SERVER_KUBECONFIG%%#"${server_kubeconfig}"#g \
 		-es:%%ZFS_K8S_PV_ROOT_MNT%%:"${ZFS_K8S_PV_ROOT_MNT}":g \
 		-es:%%ZFS_K8S_PV_CLUSTER%%:"${ZFS_K8S_PV_CLUSTER}":g \
 		-es:%%ZFS_K8S_PV_CLUSTER_MNT%%:"${ZFS_K8S_PV_CLUSTER_MNT}":g \
@@ -873,8 +881,6 @@ EOF
 
 	vrid=0
 
-	echo "C $init_masters_ips2 + $oinit_masters_ips2 "
-
 	[ -n "${omaster_interfaces}" ] && master_interfaces="${omaster_interfaces}"
 	[ -n "${oworker_interfaces}" ] && worker_interfaces="${oworker_interfaces}"
 	[ -n "${oinit_masters_ips2}" ] && init_masters_ips2="${oinit_masters_ips2}"
@@ -925,8 +931,8 @@ EOF
 			-es:%%MASTER_VM_IMGSIZE%%:"${master_vm_imgsize}":g \
 			-es:%%MASTER_INTERFACE1%%:"${master_interface1}":g \
 			-es:%%MASTER_INTERFACE2%%:"${master_interface2}":g \
-			-es:%%CI_IP4_ADDR2%%:"${init_masters_ips2}":g \
-			-es:%%CI_GW42%%:"${ci_gw42}":g \
+			-es#%%CI_IP4_ADDR2%%#"${init_masters_ips2}"#g \
+			-es#%%CI_GW42%%#"${ci_gw42}"#g \
 			${DIST_MODULE_PATH}/share/upfile/upfile-master >> ${_dstdir}/CBSDfile
 		else
 			${SED_CMD} -Ees:%%JNAME%%:"${i}":g \
@@ -939,8 +945,8 @@ EOF
 			-es:%%MASTER_VM_IMGSIZE%%:"${master_vm_imgsize}":g \
 			-es:%%MASTER_INTERFACE1%%:"${master_interface1}":g \
 			-es:%%MASTER_INTERFACE2%%:"${master_interface2}":g \
-			-es:%%CI_IP4_ADDR2%%:"${init_masters_ips2}":g \
-			-es:%%CI_GW42%%:"${ci_gw42}":g \
+			-es#%%CI_IP4_ADDR2%%#"${init_masters_ips2}"#g \
+			-es#%%CI_GW42%%#"${ci_gw42}"#g \
 			-es:%%ROLE%%:master:g \
 			${DIST_MODULE_PATH}/share/upfile/upfile-master >> ${_dstdir}/CBSDfile
 		fi
@@ -1038,7 +1044,6 @@ if [ ! -d ${MODULE_PATH} ]; then
 	${MKDIR_CMD} -m 0770 -p ${MODULE_PATH}
 	${CHOWN_CMD} ${cbsduser}:${cbsduser} ${MODULE_PATH}
 fi
-
 
 available_properties="k8s_name"
 
