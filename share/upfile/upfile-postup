@@ -13,9 +13,12 @@ postup()
 
 	[ "${PV_ENABLE}" = "0" ] && return 0
 
+	# tmp, Gi postfix in tpl
+	PV_SPEC_CAPACITY_STORAGE=$( echo ${PV_ENABLE} | ${TR_CMD} -d [:alpha:] )
+
 	${ECHO} "${N1_COLOR}create PV...${N0_COLOR}" | tee -a ${_message}
 	sed -Ees:%%PV_METADATA_NAME%%:${PV_METADATA_NAME}:g \
-		-Ees:%%PV_SPEC_CAPACITY_STORAGE%%:${PV_ENABLE}:g \
+		-Ees:%%PV_SPEC_CAPACITY_STORAGE%%:${PV_SPEC_CAPACITY_STORAGE}:g \
 		-Ees:%%PV_SPEC_VOLUMEMODE%%:${PV_SPEC_VOLUMEMODE}:g \
 		-Ees:%%PV_SPEC_STORAGECLASSNAME%%:${PV_SPEC_STORAGECLASSNAME}:g \
 		-Ees:%%PV_SPEC_NFS_PATH%%:${PV_SPEC_NFS_PATH}:g \
@@ -27,6 +30,7 @@ postup()
 		${SED_CMD} "s# server:.*# server: https://${SERVER_KUBECONFIG}#g" ${myworkdir}/config > ${myworkdir}/config.new
 	fi
 
+	echo "kubectl --kubeconfig ${myworkdir}/config apply -f ${_tmp_yaml}"
 	set -o xtrace
 	kubectl --kubeconfig ${myworkdir}/config apply -f ${_tmp_yaml}
 	set +o xtrace
