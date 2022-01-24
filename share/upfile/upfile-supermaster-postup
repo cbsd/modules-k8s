@@ -21,7 +21,7 @@ postup_%%JNAME%%()
 	${ECHO} "${N1_COLOR}   env KUBECONFIG=${N2_COLOR}${myworkdir}.config${N1_COLOR} kubectl cluster-info${N0_COLOR}" | tee -a ${_message}
 	${ECHO} "${N1_COLOR}   (use kubectl --kubeconig or KUBECONFIG env or copy ${N2_COLOR}${myworkdir}/config${N1_COLOR} to /root/.kube/config for global)${N0_COLOR}" | tee -a ${_message}
 
-	if [ "${PV_ENABLE}" = "1" ]; then
+	if [ "${PV_ENABLE}" != "0" ]; then
 		${ECHO} "${N1_COLOR}   To test PV:${N0_COLOR}" | tee -a ${_message}
 		${ECHO} "${N1_COLOR}   echo \"Hello, NFS Storage NGINX\" > /nfs/index.html${N0_COLOR}" | tee -a ${_message}
 		${ECHO} "${N1_COLOR}   kubectl get pv${N0_COLOR}" | tee -a ${_message}

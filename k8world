@@ -5,7 +5,7 @@ DIST_MODULE_PATH="${distmoduledir}/k8s.d"
 OPTARGS="${MYCOL} init_masters init_workers"
 MYARG="mode"
 #MYOPTARG="display header active human k8s_name dryrun checkip develop runasap header email"
-MYOPTARG="display header active human k8s_name dryrun checkip develop runasap header worker_vm_ram master_vm_ram master_vm_cpus master_vm_imgsize email callback init_masters init_workers worker_vm_cpus worker_vm_imgsize pv_enable"
+MYOPTARG="display header active human k8s_name dryrun checkip develop runasap header worker_vm_ram master_vm_ram master_vm_cpus master_vm_imgsize email callback init_masters init_workers worker_vm_cpus worker_vm_imgsize pv_enable pubkey"
 MYDESC="Operate with K8S cluster"
 CBSDMODULE="sys"
 ADDHELP="
@@ -71,6 +71,13 @@ pass_cmd=$( while [ -n "${1}" ]; do
 done )
 
 [ ! -r "${dbpath}" ] && /usr/local/bin/cbsd ${miscdir}/updatesql ${dbpath} ${DIST_MODULE_PATH}/share/local-k8world.schema k8world
+[ -z "${cbsd_api_dbdir}" ] && cbsd_api_dbdir="/var/db/cbsd-k8s"
+[ -z "${cbsd_api_logdir}" ] && cbsd_api_logdir="/var/log/cbsd-k8s"
+if [ ! -d "${cbsd_api_dbdir}" ]; then
+	${MKDIR_CMD} -m 0770 "${cbsd_api_dbdir}"
+	${CHOWN_CMD} ${cbsduser}:${cbsduser} "${cbsd_api_dbdir}"
+fi
+[ ! -d "${cbsd_api_logdir}" ] && ${MKDIR_CMD} -m 0770 "${cbsd_api_logdir}"
 
 case "${mode}" in
 	init)
@@ -137,11 +144,112 @@ case "${mode}" in
 
 		cbsdsqlrw ${dbpath} "INSERT INTO k8world ( k8s_name,node_cidr,net_id ) VALUES ( \"${k8s_name}\", \"${MYNET}\",\"${MYID}\" )"
 
+		echo "pubkey: [${pubkey}"]
+
+		cid=$( ${MD5_CMD} -qs "${pubkey}" )
+		echo "cid: ${cid}"]
+
+		if [ ! -d ${cbsd_api_dbdir}/${cid} ]; then
+			${MKDIR_CMD} -m 0770 -p ${cbsd_api_dbdir}/${cid}
+			${CHOWN_CMD} ${cbsduser}:${cbsduser} ${cbsd_api_dbdir}/${cid}
+		fi
+
+		if [ ! -d ${cbsd_api_dbdir}/${cid}/.ssh ]; then
+			${MKDIR_CMD} -m 0770 -p ${cbsd_api_dbdir}/${cid}/.ssh
+			${CHOWN_CMD} ${cbsduser}:${cbsduser} ${cbsd_api_dbdir}/${cid}/.ssh
+		fi
+
+		if [ ! -r ${cbsd_api_dbdir}/${cid}/.ssh/authorized_keys ]; then
+			echo "${pubkey}" > ${cbsd_api_dbdir}/${cid}/.ssh/authorized_keys
+			${CHOWN_CMD} ${cbsduser}:${cbsduser} ${cbsd_api_dbdir}/${cid}/.ssh/authorized_keys
+			sync
+			#fflush?
+			#sleep 1
+		fi
+		if [ ! -d ${cbsd_api_dbdir}/${cid}/vms ]; then
+			${MKDIR_CMD} -m 0770 -p ${cbsd_api_dbdir}/${cid}/vms
+			${CHOWN_CMD} ${cbsduser}:${cbsduser} ${cbsd_api_dbdir}/${cid}/vms
+		fi
+
+		hostname=$( hostname )
+		echo "${hostname}" > ${cbsd_api_dbdir}/${cid}/${k8s_name}.node
+
+		create_time=$( ${DATE_CMD} -u "+%Y-%m-%dT%H:%M:%S" )
+
 		echo "cbsd k8s mode=init k8s_name=\"${k8s_name}\" init_masters_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces=\"${int_bridge_name} ${ext_bridge_name}\" init_masters_ips2=\"${ext_ip}\" ci_gw42=\"${ext_br_ip}\" develop=0 server_ip_extra=\"${ext_ip}\" server_kubeconfig=\"[${ext_ip}]\" runasap=${runasap} email=\"${email}\"" >> /tmp/k8world.log
 		k8s mode=init k8s_name="${k8s_name}" init_masters_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces="${int_bridge_name} ${ext_bridge_name}" init_masters_ips2="${ext_ip}" ci_gw42="${ext_br_ip}" develop=0 server_ip_extra="${ext_ip}" server_kubeconfig="[${ext_ip}]" runasap=${runasap} email="${email}"
 
 		#echo "[debug]: k8s mode=init ${pass_cmd} ip4_gw=${int_br_ip} node_cidr=172.16.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}"
 		#k8s mode=init ${pass_cmd} ip4_gw=172.16.${MYID}.1 node_cidr=172.16.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}
+
+		${CAT_CMD} > ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh <<EOF
+{
+  "external_ipv6": "${ext_ip}",
+  "external_ipv4": "0",
+  "is_power_on": "true",
+  "created": "${create_time}",
+  "masters": "1",
+  "workers": "0",
+  "kubelet_master": "1",
+  "pv_enable": "20g",
+  "masters_ram_bytes": "213445",
+  "masters_ram_human": "2g",
+  "masters_cpus": "1",
+  "master_imgsize_bytes": "22222",
+  "master_imgsize_human": "22g",
+  "workers_ram_bytes": "123456",
+  "workers_ram_human": "20g",
+  "workers_cpus": "1",
+  "workers_imgsize_bytes": "123455656",
+  "workers_imgsize_human": "10g",
+  "total_worker_cpus": "4",
+  "total_worker_ram_bytes": "1234566",
+  "total_worker_ram_human": "20g",
+  "email": "${email}",
+  "callback": "${callback}",
+EOF
+		${CAT_CMD} >> ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh <<EOF
+  "ssh_string": "ssh ${ssh_user}@${ssh_host} -p${port}",
+  "ssh4_string": "ssh ${ssh_user}@${ssh4_host} -p${port4}",
+  "ssh6_string": "ssh ${ssh_user}@${ssh6_host} -p${port6}"
+}
+EOF
+		# dup to param-values
+		${CAT_CMD} > ${cbsd_api_dbdir}/${cid}/vms/${k8s_name} <<EOF
+external_ipv6="${init_masters_ips2}"
+external_ipv4="0"
+is_power_on="true"
+created="${create_time}"
+masters"="1"
+workers="0"
+kubelet_master="1"
+pv_enable="20g"
+masters_ram_bytes="213445"
+masters_ram_human="2g"
+masters_cpus="1"
+master_imgsize_bytes="22222"
+master_imgsize_human="22g"
+workers_ram_bytes="12345"
+workers_ram_human="20g"
+workers_cpus="1"
+workers_imgsize_bytes="123455656"
+workers_imgsize_human="10g"
+total_worker_cpus="4"
+total_worker_ram_bytes="1234566"
+total_worker_ram_human="20g"
+email="${email}"
+callback="${callback}"
+EOF
+
+		${CAT_CMD} >> ${cbsd_api_dbdir}/${cid}/vms/${k8s_name} <<EOF
+ssh_string="ssh ${ssh_user}@${ssh_host} -p${port}"
+ssh4_string="ssh ${ssh_user}@${ssh4_host} -p${port4}"
+ssh6_string="ssh ${ssh_user}@${ssh6_host} -p${port6}"
+EOF
+
+		${CHOWN_CMD} ${cbsduser}:${cbsduser} ${cbsd_api_dbdir}/${cid}/vms/${jname} ${cbsd_api_dbdir}/${cid}/${jname}.node ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh
+		[ -n "${api_postcreate_hook}" -a -x "${api_postcreate_hook}" ] && ${api_postcreate_hook} -c ${cid} -j ${k8s_name} -m create -r ${cbsd_api_dbdir}
+
 		;;
 	list)
 		list_k8world | ${COLUMN_CMD} -t
@@ -150,7 +258,7 @@ case "${mode}" in
 		[ -z "${k8s_name}" ] && err 1 "${N1_COLOR}${CBSD_APP} ${N2_COLOR}k8s_name= ${N1_COLOR}is mandatory${N0_COLOR}"
 		MYID=$( cbsdsqlro ${dbpath} "SELECT net_id FROM k8world WHERE k8s_name=\"${k8s_name}\" LIMIT 1" )
 		[ -z "${MYID}" ] && err 1 "${N1_COLOR}${CBSD_APP}: no such record: ${N2_COLOR}${k8s_name}${N0_COLOR}"
-		 stop VM first
+		#stop VM first
 		cluster_db="${MODULE_PATH}/${k8s_name}.sqlite"
 		[ ! -r ${cluster_db} ] && err 1 "${N1_COLOR}${CBSD_APP}: no such cluster db for ${k8s_name}: ${N2_COLOR}${cluster_db}${N0_COLOR}"
 		bhyve_list=$( cbsdsqlro ${cluster_db} "SELECT bhyve_list FROM k8s WHERE k8s_name=\"${k8s_name}\" LIMIT 1" )
@@ -161,6 +269,13 @@ case "${mode}" in
 			done
 		fi
 		k8s mode=destroy k8s_name="${k8s_name}"
+		${FIND_CMD} ${cbsd_api_dbdir}/ -type d -name vms | while read _dir; do
+			if [ -r ${_dir}/${k8s_name} ]; then
+				cid=$( ${REALPATH_CMD} ${_dir}/${k8s_name} | ${CUT_CMD} -d / -f 5 )
+				${RM_CMD} -f ${_dir}/${k8s_name} ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh ${cbsd_api_dbdir}/${cid}/${k8s_name}.node
+				[ -n "${api_postdestroy_hook}" -a -x "${api_postdestroy_hook}" ] && ${api_postdestroy_hook} -c ${cid} -j ${k8s_name} -m destroy -r ${cbsd_api_dbdir}
+			fi
+		done
 
 		# VALE part
 		#${IFCONFIG_CMD} vether${MYID} > /dev/null 2>&1 && ${IFCONFIG_CMD} vether${MYID} destroy > /dev/null 2>&1
