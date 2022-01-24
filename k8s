@@ -765,7 +765,7 @@ init_upfile()
 	fi
 
 	${SED_CMD} -Ees:%%INIT_MASTER_IPS%%:"${init_master_ips}":g \
-		-es:%%init_worker_ips%%:"${init_worker_ips}":g \
+		-es:%%INIT_WORKER_IPS%%:"${init_worker_ips}":g \
 		-es:%%VIP%%:"${vip}":g \
 		-es:%%PV_ENABLE%%:"${pv_enable}":g \
 		-es:%%PV_SPEC_NFS_PATH%%:"${pv_spec_nfs_path}":g \
