@@ -36,6 +36,61 @@ list_k8world()
 	cbsdsqlro ${dbpath} "SELECT * from k8world"
 }
 
+mkjail()
+{
+	myjail="ssh${MYID}"
+
+	echo "${myjail}" > ${cbsd_api_dbdir}/${k8s_name}.jail
+
+	jdestroy jname=${myjail} || true
+
+	echo "jcreate jname=${myjail} cpu=1 fsquota=10g vmemoryuse=1g runasap=1 interface=0 ip4_addr=\"${int_br_ip},${ext_ip}\""
+
+	cbsd jclone old=micro1 new=${myjail} host_hostname=${myjail}.try-fcp.org
+	#cbsd jset cpu=1 fsquota=10g vmemoryuse=1g jname=micro
+	cbsd jset interface=0 jname=${myjail} ip4_addr="${int_br_ip},${ext_br_ip}" astart=0
+#	jcreate jname=${myjail} \
+#		cpu=1 fsquota=10g vmemoryuse=1g \
+#		interface=0 \
+#		ip4_addr="${int_br_ip},${ext_br_ip}" \
+#		sysrc="sshd_enable=YES sshd_flags='-oUseDNS=no -oPermitRootLogin=without-password' cron_enable='NO' syslogd_enable='NO'"
+
+	${CAT_CMD} > /usr/jails/jails-fstab/${myjail}/fstab.local <<EOF
+/k8s/pv/${k8s_name} /usr/home/fcp/pv nullfs rw 0 0
+EOF
+	jstart jname=${myjail}
+
+# \
+#user_add='fcp' \
+#user_gecos_fcp='Freebernetes console' \
+#user_home_fcp='/home/fcp' \
+#user_shell_fcp='/bin/csh'
+
+	# todo: hardcode -> config file + $workdir
+	mkdir -m 0700 -p /usr/jails/jails-data/${myjail}-data/usr/home/fcp/.ssh /usr/jails/jails-data/${myjail}-data/usr/home/fcp/.kube
+	chmod 0700 /usr/jails/jails-data/${myjail}-data/usr/home/fcp /usr/jails/jails-data/${myjail}-data/usr/home/fcp/.ssh
+	echo "${pubkey}" > /usr/jails/jails-data/${myjail}-data/usr/home/fcp/.ssh/authorized_keys
+	chmod 0400 /usr/jails/jails-data/${myjail}-data/usr/home/fcp/.ssh/authorized_keys
+
+	${CAT_CMD} > /usr/jails/jails-data/${myjail}-data/usr/home/fcp/.login <<EOF
+if ( -x /usr/bin/resizewin ) /usr/bin/resizewin -z
+echo "cluster-info:"
+/usr/local/bin/kubectl cluster-info
+echo "get nodes -o wide:"
+/usr/local/bin/kubectl get nodes -o wide
+echo "get pv:"
+/usr/local/bin/kubectl get pv
+echo
+echo "Type 'k9s' to rub K9S"
+EOF
+	cp -a /usr/jails/var/db/k8s/${k8s_name}.kubeconfig /usr/jails/jails-data/${myjail}-data/usr/home/fcp/.kube/config
+
+	chown -R 1001:1001 /usr/jails/jails-data/${myjail}-data/usr/home/fcp
+
+	echo "expose jname=${myjail} in=${ssh_console_port} out=22 outaddr=${int_br_ip} mode=add"
+	expose jname=${myjail} in=${ssh_console_port} out=22 mode=add outaddr=${int_br_ip}
+}
+
 # proxy args
 # rebuild arg list ( + add pass )
 # Pass '"' as \" in cmd
@@ -101,7 +156,7 @@ case "${mode}" in
 			fi
 		done
 		[ -z "${MYNET}" ] && err 1 "no such free net"
-		echo "my net: ${MYNET}.0/24, ID: ${MYID}"
+		echo "my net: ${MYNET}.0/24, ID: [${MYID}]"
 
 		# vale section: 2021-01 notes: need more test for stability
 		#${IFCONFIG_CMD} vether${MYID} create
@@ -113,7 +168,7 @@ case "${mode}" in
 		#k8s mode=init ${pass_cmd} ip4_gw=172.16.${MYID}.1 node_cidr=172.16.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}
 
 		# bridge section
-		int_br="${MYID}"
+		int_br=$(( MYID * 2 ))
 		ext_br=$(( int_br + 1 ))
 
 		int_bridge_name="bridge${int_br}"
@@ -126,6 +181,8 @@ case "${mode}" in
 		# check for ext_ip/ext_br_ip IP here!!
 		# to post/pre hooks + destroy
 
+		echo "my ifaces: int: ${int_bridge_name} -> ${int_br_ip}, ext: ${ext_bridge_name} -> ${ext_br_ip}"
+
 		IPFW_RULE=$(( MYID + 1024 ))
 
 		echo "/sbin/ipfw -q add ${IPFW_RULE} deny ip from ${ext_br_ip} to any via igb0"
@@ -136,11 +193,11 @@ case "${mode}" in
 		${IFCONFIG_CMD} ${int_bridge_name} create description k8s-${MYID}-int
 		${IFCONFIG_CMD} ${int_bridge_name} ${int_br_ip}/24 up
 
-		${IFCONFIG_CMD} ${ext_bridge_name} create description k8s-${MYID}-int
+		${IFCONFIG_CMD} ${ext_bridge_name} create description k8s-${MYID}-ext
 		${IFCONFIG_CMD} ${ext_bridge_name} inet6 ${ext_br_ip}/64 up
 
 		# to post/pre hooks + destroy
-		/sbin/route -6 add ${ext_ip} -interface ${ext_bridge_name}
+		${ROUTE_CMD} -6 add ${ext_ip} -interface ${ext_bridge_name}
 
 		cbsdsqlrw ${dbpath} "INSERT INTO k8world ( k8s_name,node_cidr,net_id ) VALUES ( \"${k8s_name}\", \"${MYNET}\",\"${MYID}\" )"
 
@@ -178,11 +235,13 @@ case "${mode}" in
 
 		create_time=$( ${DATE_CMD} -u "+%Y-%m-%dT%H:%M:%S" )
 
-		echo "cbsd k8s mode=init k8s_name=\"${k8s_name}\" pv_enable=\"20g\" init_master_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces=\"${int_bridge_name} ${ext_bridge_name}\" init_master_ips2=\"${ext_ip}\" ci_gw42=\"${ext_br_ip}\" develop=0 server_ip_extra=\"${ext_ip}\" server_kubeconfig=\"[${ext_ip}]\" runasap=${runasap} email=\"${email}\"" >> /tmp/k8world.log
-		k8s mode=init k8s_name="${k8s_name}" pv_enable="20g" init_master_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces="${int_bridge_name} ${ext_bridge_name}" init_master_ips2="${ext_ip}" ci_gw42="${ext_br_ip}" develop=0 server_ip_extra="${ext_ip}" server_kubeconfig="[${ext_ip}]" runasap=${runasap} email="${email}"
+		echo "cbsd k8s mode=init k8s_name=\"${k8s_name}\" pv_enable=\"20g\" init_master_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces=\"${int_bridge_name} ${ext_bridge_name}\" init_master_ips2=\"${ext_ip}\" ci_gw42=\"${ext_br_ip}\" develop=0 server_ip_extra=\"${ext_ip}\" server_kubeconfig=\"[${ext_ip}]\" runasap=${runasap} email=\"${email}\" cluster=\"try-fcp.org\"" >> /tmp/k8world.log
+		k8s mode=init k8s_name="${k8s_name}" pv_enable="20g" init_master_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces="${int_bridge_name} ${ext_bridge_name}" init_master_ips2="${ext_ip}" ci_gw42="${ext_br_ip}" develop=0 server_ip_extra="${ext_ip}" server_kubeconfig="[${ext_ip}]" runasap=${runasap} email="${email}" cluster="try-fcp.org"
 
 		#echo "[debug]: k8s mode=init ${pass_cmd} ip4_gw=${int_br_ip} node_cidr=172.16.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}"
 		#k8s mode=init ${pass_cmd} ip4_gw=172.16.${MYID}.1 node_cidr=172.16.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}
+
+		ssh_console_port=$(( 2048 + MYID ))
 
 		${CAT_CMD} > ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh <<EOF
 {
@@ -209,13 +268,10 @@ case "${mode}" in
   "total_worker_ram_human": "20g",
   "email": "${email}",
   "callback": "${callback}",
-EOF
-		${CAT_CMD} >> ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh <<EOF
-  "ssh_string": "ssh ${ssh_user}@${ssh_host} -p${port}",
-  "ssh4_string": "ssh ${ssh_user}@${ssh4_host} -p${port4}",
-  "ssh6_string": "ssh ${ssh_user}@${ssh6_host} -p${port6}"
+  "ssh_console_string": "ssh -4 fcp@${nodeip} -p${ssh_console_port}"
 }
 EOF
+
 		# dup to param-values
 		${CAT_CMD} > ${cbsd_api_dbdir}/${cid}/vms/${k8s_name} <<EOF
 external_ipv6="${init_master_ips2}"
@@ -241,23 +297,32 @@ total_worker_ram_bytes="1234566"
 total_worker_ram_human="20g"
 email="${email}"
 callback="${callback}"
+ssh_console_string="ssh -4 fcp@${nodeip} -p${ssh_console_port}"
 EOF
 
-		${CAT_CMD} >> ${cbsd_api_dbdir}/${cid}/vms/${k8s_name} <<EOF
-ssh_string="ssh ${ssh_user}@${ssh_host} -p${port}"
-ssh4_string="ssh ${ssh_user}@${ssh4_host} -p${port4}"
-ssh6_string="ssh ${ssh_user}@${ssh6_host} -p${port6}"
-EOF
 
 		${CHOWN_CMD} ${cbsduser}:${cbsduser} ${cbsd_api_dbdir}/${cid}/vms/${jname} ${cbsd_api_dbdir}/${cid}/${jname}.node ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh
 		[ -n "${api_postcreate_hook}" -a -x "${api_postcreate_hook}" ] && ${api_postcreate_hook} -c ${cid} -j ${k8s_name} -m create -r ${cbsd_api_dbdir}
 
+		mkjail
 		;;
 	list)
 		list_k8world | ${COLUMN_CMD} -t
 		;;
 	destroy|clean)
 		[ -z "${k8s_name}" ] && err 1 "${N1_COLOR}${CBSD_APP} ${N2_COLOR}k8s_name= ${N1_COLOR}is mandatory${N0_COLOR}"
+
+		if [ -r "${cbsd_api_dbdir}/${k8s_name}.jail" ]; then
+			myjail=$( ${CAT_CMD} ${cbsd_api_dbdir}/${k8s_name}.jail | ${AWK_CMD} '{printf $1}' )
+			echo "destroy console jail: ${myjail}"
+			jdestroy jname=${myjail} || true
+			${RM_CMD} -f ${cbsd_api_dbdir}/${k8s_name}.jail
+		else
+			echo "No such ${cbsd_api_dbdir}/${k8s_name}.jail"
+		fi
+
+		MYCID=$( ${CAT_CMD} ${cbsd_api_dbdir}/${k8s_name}.cid | ${AWK_CMD} '{printf $1}' )
+
 		MYID=$( cbsdsqlro ${dbpath} "SELECT net_id FROM k8world WHERE k8s_name=\"${k8s_name}\" LIMIT 1" )
 		[ -z "${MYID}" ] && err 1 "${N1_COLOR}${CBSD_APP}: no such record: ${N2_COLOR}${k8s_name}${N0_COLOR}"
 		#stop VM first
@@ -273,11 +338,13 @@ EOF
 		k8s mode=destroy k8s_name="${k8s_name}"
 		${FIND_CMD} ${cbsd_api_dbdir}/ -type d -name vms | while read _dir; do
 			if [ -r ${_dir}/${k8s_name} ]; then
-				cid=$( ${REALPATH_CMD} ${_dir}/${k8s_name} | ${CUT_CMD} -d / -f 5 )
+				# REWRITE ASAP
 				${RM_CMD} -f ${_dir}/${k8s_name} ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh ${cbsd_api_dbdir}/${cid}/${k8s_name}.node
 				[ -n "${api_postdestroy_hook}" -a -x "${api_postdestroy_hook}" ] && ${api_postdestroy_hook} -c ${cid} -j ${k8s_name} -m destroy -r ${cbsd_api_dbdir}
 			fi
 		done
+
+		[ -r "${cbsd_api_dbdir}/${MYCID}.time" ] && ${RM_CMD} -f ${cbsd_api_dbdir}/${MYCID}.time
 
 		# VALE part
 		#${IFCONFIG_CMD} vether${MYID} > /dev/null 2>&1 && ${IFCONFIG_CMD} vether${MYID} destroy > /dev/null 2>&1
@@ -301,10 +368,15 @@ EOF
 
 		/sbin/ipfw -q delete ${IPFW_RULE} > /dev/null 2>&1
 		# route del
-		# роут сам удаляется при уничтожении интерфейса, но можно подстраховаться и сносить его до.
+		# the route itself is deleted when the interface is destroyed, but we can play it safe and delete it before
 
 		${ECHO} "${N1_COLOR}k8s removed: ${N2_COLOR}${k8s_name}${N0_COLOR}"
 		cbsdsqlrw ${dbpath} "DELETE FROM k8world WHERE k8s_name=\"${k8s_name}\""
+		[ -r "${cbsd_api_dbdir}/${k8s_name}.cid" ] && ${RM_CMD} -f ${cbsd_api_dbdir}/${k8s_name}.cid
+		${ZFS_CMD} destroy -f zroot/k8s/pv/${k8s_name}
+		${CP_CMD} /etc/exports /etc/exports.$$
+		${GREP_CMD} -v "/k8s/pv/${k8s_name} " /etc/exports.$$ > /etc/exports
+		/etc/rc.d/mountd restart
 		;;
 	*)
 		err 1 "${N1_COLOR}unknown mode: ${N2_COLOR}${mode}${N1_COLOR}, available: ${N2_COLOR}init,destroy,list,init_upfile${N0_COLOR}"
