@@ -380,6 +380,9 @@ EOF
 		${CP_CMD} /etc/exports /etc/exports.$$
 		${GREP_CMD} -v "/k8s/pv/${k8s_name} " /etc/exports.$$ > /etc/exports
 		/etc/rc.d/mountd restart
+
+		current_num=$( /usr/local/bin/sqlite3 /usr/jails/var/db/k8s/k8world.sqlite 'SELECT COUNT(id) FROM k8world;' | awk '{printf $1}' )
+		echo "${current_num}" > /var/db/cbsd-k8s/queue
 		;;
 	*)
 		err 1 "${N1_COLOR}unknown mode: ${N2_COLOR}${mode}${N1_COLOR}, available: ${N2_COLOR}init,destroy,list,init_upfile${N0_COLOR}"

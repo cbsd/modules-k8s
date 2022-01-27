@@ -21,6 +21,12 @@ DIST_MODULE_PATH="${distmoduledir}/k8s.d"
 . ${subr}
 . ${cbsdinit}
 
+current_num=$( /usr/local/bin/sqlite3 /usr/jails/var/db/k8s/k8world.sqlite 'SELECT COUNT(id) FROM k8world;' | awk '{printf $1}' )
+
+new_num=$(( current_num + 1 ))
+
+echo "${new_num}" > /var/db/cbsd-k8s/queue
+
 echo "Inc queue [$*]" >> /tmp/k8s-lockf.log
 # 10m full timeout
 
