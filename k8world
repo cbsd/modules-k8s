@@ -353,7 +353,8 @@ EOF
 		echo "Destroy K8S ${k8s_name} with ID: ${MYID}"
 		k8s mode=destroy k8s_name="${k8s_name}"
 
-		int_br="${MYID}"
+		# bridge section
+		int_br=$(( MYID * 2 ))
 		ext_br=$(( int_br + 1 ))
 
 		int_bridge_name="bridge${int_br}"
@@ -363,6 +364,8 @@ EOF
 			${IFCONFIG_CMD} ${i} > /dev/null 2>&1
 			[ $? -eq 0 ] && ${IFCONFIG_CMD} ${i} destroy > /dev/null 2>&1
 		done
+
+		# extra cleanup for ifaces?
 
 		IPFW_RULE=$(( MYID + 1024 ))
 

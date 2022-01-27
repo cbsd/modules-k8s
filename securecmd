@@ -3,4 +3,5 @@ SECCMD="\
 ${SECCMD}
 k8s \
 k8world \
+k8hetzner2 \
 "
