@@ -1,4 +1,6 @@
 #!/bin/sh
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+
 echo "Inc queue [$*]" >> /tmp/k8s-lockf.log
-/usr/bin/lockf -s -t0 /tmp/k8sworld.lock /usr/local/bin/cbsd k8world ${*}
+# 10m full timeout
+/usr/bin/lockf -s -t600 /tmp/k8sworld.lock /usr/local/bin/cbsd k8world ${*}
