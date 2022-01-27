@@ -32,7 +32,7 @@ preup()
 		echo "/usr/sbin/daemon -o /var/log/k8s-pv-enable-${VIP}.log /usr/local/cbsd/modules/k8s.d/scripts/pv-create-daemon.sh -a \"${ZFS_K8S_PV_CLUSTER}\" -b \"${ZFS_K8S_PV_CLUSTER_MNT}\" -c \"${PV_ENABLE}\" -d /var/log/k8s/pv-create.log -e ${PV_SPEC_SERVER} -f \"${INIT_MASTER_IPS} ${INIT_WORKER_IPS}\" -g ${PV_SPEC_NFS_PATH} -h ${ZFS_K8S_PV_ROOT_MNT}"
 		/usr/sbin/daemon -o /var/log/k8s-pv-enable-${VIP}.log /usr/local/cbsd/modules/k8s.d/scripts/pv-create-daemon.sh \
 		-a "${ZFS_K8S_PV_CLUSTER}" -b "${ZFS_K8S_PV_CLUSTER_MNT}" -c "${PV_ENABLE}" -d /var/log/k8s/pv-create.log \
-		-e ${PV_SPEC_SERVER}s \
+		-e ${PV_SPEC_SERVER} \
 		-f "${INIT_MASTER_IPS} ${INIT_WORKER_IPS}" -g ${PV_SPEC_NFS_PATH} -h ${ZFS_K8S_PV_ROOT_MNT}
 
 		# seq:
