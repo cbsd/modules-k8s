@@ -877,7 +877,24 @@ CLUSTERIPRANGE="${clusteriprange}"
 NODE_NETWORK="${_network_address}"
 CONTAINER_ENGINE="${container_engine}"
 NTP_SERVERS="${ntp_servers}"
+HAPROXY_ENABLE=0
 EOF
+
+	EXT_IP=
+
+	if [ -n "${init_master_ips2}" ]; then
+		OIFS="${IFS}"
+		IFS=","
+		for i in ${init_master_ips2}; do
+			EXT_IP="${i}"
+			break
+		done
+		IFS="${OIFS}"
+	fi
+
+	if [ -n "${EXT_IP}" ]; then
+		echo "EXT_IP=\"${EXT_IP}\"" >> ${_dstdir}/bootstrap.config
+	fi
 
 	vrid=0
 
