@@ -47,4 +47,5 @@ for i in ${MYARG} ${MYOPTARG}; do
 	fi
 done
 
-/usr/bin/lockf -s -t600 /tmp/k8sworld.lock /usr/local/bin/cbsd k8world ${str}
+echo "/usr/local/bin/cbsd k8world ${str}" >> /tmp/k8hetzner.sh.$$
+/usr/bin/lockf -s -t600 /tmp/k8sworld.lock /bin/sh /tmp/k8hetzner.sh.$$
