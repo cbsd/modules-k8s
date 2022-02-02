@@ -44,6 +44,15 @@ mkjail()
 
 	jdestroy jname=${myjail} || true
 
+	${ZFS_CMD} list zroot/ROOT/default/${myjail}
+	if [ $? -eq 0 ]; then
+		echo "zroot/ROOT/default/${myjail} exist ?? destroy it"
+		${ZFS_CMD} destroy -f zroot/ROOT/default/${myjail}
+	fi
+	if [ -d /usr/jails/jails-data/${myjail}-data ]; then
+		${RM_CMD} -rf /usr/jails/jails-data/${myjail}-data
+	fi
+
 	echo "jcreate jname=${myjail} cpu=1 fsquota=10g vmemoryuse=1g runasap=1 interface=0 ip4_addr=\"${int_br_ip},${ext_ip}\""
 
 	cbsd jclone old=micro1 new=${myjail} host_hostname=${myjail}.try-fcp.org
@@ -248,6 +257,7 @@ case "${mode}" in
 		${CAT_CMD} > ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh <<EOF
 {
   "status": "created",
+  "cluster_id": "${MYID}",
   "external_plane_ipv6": "${ext_ip}",
   "external_plane_ipv4": "0",
   "external_ipv6": "${ext_ip2}",
@@ -283,6 +293,7 @@ EOF
 
 		# dup to param-values
 		${CAT_CMD} > ${cbsd_api_dbdir}/${cid}/vms/${k8s_name} <<EOF
+cluster_id="${MYID}"
 external_plane_ipv6="${ext_ip}"
 external_plane_ipv4="0"
 external_ipv6="${ext_ip2}"

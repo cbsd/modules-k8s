@@ -21,7 +21,7 @@ DIST_MODULE_PATH="${distmoduledir}/k8s.d"
 . ${subr}
 . ${cbsdinit}
 
-current_num=$( /usr/local/bin/sqlite3 /usr/jails/var/db/k8s/k8world.sqlite 'SELECT COUNT(id) FROM k8world;' | awk '{printf $1}' )
+current_num=$( /usr/local/bin/sqlite3 /usr/jails/var/db/k8s/k8world.sqlite 'SELECT COUNT(id) FROM k8world;' | ${AWK_CMD} '{printf $1}' )
 
 new_num=$(( current_num + 1 ))
 
