@@ -30,7 +30,6 @@ echo "${new_num}" > /var/db/cbsd-k8s/queue
 echo "Inc queue [$*]" >> /tmp/k8s-lockf.log
 # 10m full timeout
 
-
 for i in ${MYARG} ${MYOPTARG}; do
 	T=
 	eval T="\$$i"

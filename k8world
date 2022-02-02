@@ -247,32 +247,37 @@ case "${mode}" in
 
 		${CAT_CMD} > ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh <<EOF
 {
+  "status": "created",
   "external_plane_ipv6": "${ext_ip}",
   "external_plane_ipv4": "0",
   "external_ipv6": "${ext_ip2}",
   "external_ipv4": "0",
   "is_power_on": "true",
   "created": "${create_time}",
-  "masters": "1",
-  "workers": "0",
-  "kubelet_master": "1",
+  "masters": 1,
+  "workers": 0,
+  "kubelet_master": "true",
   "pv_enable": "20g",
-  "masters_ram_bytes": "213445",
+  "masters_ram_bytes": 213445,
   "masters_ram_human": "2g",
-  "masters_cpus": "1",
-  "master_imgsize_bytes": "22222",
+  "masters_cpus": 1,
+  "master_imgsize_bytes": 22222,
   "master_imgsize_human": "22g",
-  "workers_ram_bytes": "123456",
+  "workers_ram_bytes": 123456,
   "workers_ram_human": "20g",
-  "workers_cpus": "1",
-  "workers_imgsize_bytes": "123455656",
+  "workers_cpus": 1,
+  "workers_imgsize_bytes": 123455656,
   "workers_imgsize_human": "10g",
-  "total_worker_cpus": "4",
-  "total_worker_ram_bytes": "1234566",
+  "total_worker_cpus": 4,
+  "total_worker_ram_bytes": 1234566,
   "total_worker_ram_human": "20g",
   "email": "${email}",
   "callback": "${callback}",
-  "ssh_console_string": "ssh -4 fcp@${nodeip} -p${ssh_console_port}"
+  "ssh_console_string": "ssh -4 fcp@${nodeip} -p${ssh_console_port}",
+  "ssh_console_user": "fcp",
+  "ssh_console_ipv4": "${nodeip}",
+  "ssh_console_ipv6": "0",
+  "ssh_console_port": ${ssh_console_port}
 }
 EOF
 
@@ -304,6 +309,10 @@ total_worker_ram_human="20g"
 email="${email}"
 callback="${callback}"
 ssh_console_string="ssh -4 fcp@${nodeip} -p${ssh_console_port}"
+ssh_console_user="fcp"
+ssh_console_ipv4="${nodeip}"
+ssh_console_ipv6="0"
+ssh_console_port=${ssh_console_port}
 EOF
 
 
