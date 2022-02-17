@@ -53,11 +53,11 @@ mkjail()
 		${RM_CMD} -rf /usr/jails/jails-data/${myjail}-data
 	fi
 
-	echo "jcreate jname=${myjail} cpu=1 fsquota=10g vmemoryuse=1g runasap=1 interface=0 ip4_addr=\"${int_br_ip},${ext_ip}\""
+	echo "jcreate jname=${myjail} cpu=1 fsquota=10g vmemoryuse=1g runasap=1 interface=0 ip4_addr=\"${int_br_ip},${ext_ip}\" allow_mount=\"0\" allow_nullfs=\"0\" allow_procfs=\"0\" allow_tmpfs=\"0\" mount_ports=\"0\""
 
 	cbsd jclone old=micro1 new=${myjail} host_hostname=${myjail}.try-fcp.org
 	#cbsd jset cpu=1 fsquota=10g vmemoryuse=1g jname=micro
-	cbsd jset interface=0 jname=${myjail} ip4_addr="${int_br_ip},${ext_br_ip}" astart=0
+	cbsd jset interface=0 jname=${myjail} ip4_addr="${int_br_ip},${ext_br_ip}" astart=0 allow_mount="0" allow_nullfs="0" allow_procfs="0" allow_tmpfs="0" mount_ports="0"
 #	jcreate jname=${myjail} \
 #		cpu=1 fsquota=10g vmemoryuse=1g \
 #		interface=0 \
@@ -67,6 +67,8 @@ mkjail()
 	${CAT_CMD} > /usr/jails/jails-fstab/${myjail}/fstab.local <<EOF
 /k8s/pv/${k8s_name} /usr/home/fcp/pv nullfs rw 0 0
 EOF
+
+	${ZFS_CMD} set quota=200m zroot/ROOT/default/${myjail}
 	jstart jname=${myjail}
 
 # \
@@ -246,8 +248,8 @@ case "${mode}" in
 
 		create_time=$( ${DATE_CMD} -u "+%Y-%m-%dT%H:%M:%S" )
 
-		echo "cbsd k8s mode=init k8s_name=\"${k8s_name}\" pv_enable=\"20g\" init_master_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces=\"${int_bridge_name} ${ext_bridge_name}\" init_master_ips2=\"${ext_ip}\" ci_gw42=\"${ext_br_ip}\" develop=0 server_ip_extra=\"${ext_ip}\" server_kubeconfig=\"[${ext_ip}]:6443\" runasap=${runasap} email=\"${email}\" cluster=\"try-fcp.org\" server_dns=\"${k8s_name}.try-fcp.org,master1\"" >> /tmp/k8world.log
-		k8s mode=init k8s_name="${k8s_name}" pv_enable="20g" init_master_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces="${int_bridge_name} ${ext_bridge_name}" init_master_ips2="${ext_ip}/64,${ext_ip2}/64" ci_gw42="${ext_br_ip}" develop=1 server_ip_extra="${ext_ip}" server_kubeconfig="[${ext_ip}]:6443" runasap=${runasap} email="${email}" server_dns="${k8s_name}.try-fcp.org,master1" cluster="try-fcp.org"
+		echo "cbsd k8s mode=init k8s_name=\"${k8s_name}\" master_vm_ram=\"${master_vm_ram}\" pv_enable=\"10g\" init_master_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces=\"${int_bridge_name} ${ext_bridge_name}\" init_master_ips2=\"${ext_ip}\" ci_gw42=\"${ext_br_ip}\" develop=0 server_ip_extra=\"${ext_ip}\" server_kubeconfig=\"[${ext_ip}]:6443\" runasap=${runasap} email=\"${email}\" cluster=\"try-fcp.org\" server_dns=\"${k8s_name}.try-fcp.org,master1\"" >> /tmp/k8world.log
+		k8s mode=init k8s_name="${k8s_name}" master_vm_ram="${master_vm_ram}" pv_enable="10g" init_master_ips=172.16.${MYID}.2 ip4_gw=${int_br_ip} vip=172.16.${MYID}.3 master_interfaces="${int_bridge_name} ${ext_bridge_name}" init_master_ips2="${ext_ip}/64,${ext_ip2}/64" ci_gw42="${ext_br_ip}" develop=1 server_ip_extra="${ext_ip}" server_kubeconfig="[${ext_ip}]:6443" runasap=${runasap} email="${email}" server_dns="${k8s_name}.try-fcp.org,master1" cluster="try-fcp.org"
 
 		#echo "[debug]: k8s mode=init ${pass_cmd} ip4_gw=${int_br_ip} node_cidr=172.16.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}"
 		#k8s mode=init ${pass_cmd} ip4_gw=172.16.${MYID}.1 node_cidr=172.16.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}
@@ -265,21 +267,22 @@ case "${mode}" in
   "is_power_on": "true",
   "created": "${create_time}",
   "masters": 1,
-  "workers": 0,
+  "workers": 1,
   "kubelet_master": "true",
-  "pv_enable": "20g",
-  "masters_ram_bytes": 213445,
-  "masters_ram_human": "2g",
-  "masters_cpus": 1,
-  "master_imgsize_bytes": 22222,
-  "master_imgsize_human": "22g",
-  "workers_ram_bytes": 123456,
-  "workers_ram_human": "20g",
-  "workers_cpus": 1,
-  "workers_imgsize_bytes": 123455656,
-  "workers_imgsize_human": "10g",
-  "total_worker_cpus": 4,
-  "total_worker_ram_bytes": 1234566,
+  "pv_enable": "10g",
+  "pv_enable_human": 10737418240,
+  "masters_ram_bytes": 4294967296,
+  "masters_ram_human": "4g",
+  "masters_cpus": 2,
+  "master_imgsize_bytes": 21474836480,
+  "master_imgsize_human": "20g",
+  "workers_ram_bytes": 4294967296,
+  "workers_ram_human": "4g",
+  "workers_cpus": 2,
+  "workers_imgsize_bytes": 21474836480,
+  "workers_imgsize_human": "20g",
+  "total_worker_cpus": 2,
+  "total_worker_ram_bytes": 4294967296,
   "total_worker_ram_human": "20g",
   "email": "${email}",
   "callback": "${callback}",
@@ -406,6 +409,10 @@ EOF
 		${CP_CMD} /etc/exports /etc/exports.$$
 		${GREP_CMD} -v "/k8s/pv/${k8s_name} " /etc/exports.$$ > /etc/exports
 		/etc/rc.d/mountd restart
+
+		if [ -r /usr/local/www/clients.sqlite ]; then
+			/usr/local/bin/sqlite3 /usr/local/www/clients.sqlite "DELETE FROM clients WHERE k8s_name='${k8s_name}'"
+		fi
 
 		current_num=$( /usr/local/bin/sqlite3 /usr/jails/var/db/k8s/k8world.sqlite 'SELECT COUNT(id) FROM k8world;' | awk '{printf $1}' )
 		echo "${current_num}" > /var/db/cbsd-k8s/queue
