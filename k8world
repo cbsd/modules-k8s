@@ -202,7 +202,8 @@ case "${mode}" in
 		echo "/sbin/ipfw -q add ${IPFW_RULE} deny ip from any to ${ext_br_ip} via ${_uplink_iface4}"
 		/sbin/ipfw -q add ${IPFW_RULE} deny ip from ${ext_br_ip} to any via ${_uplink_iface4}
 		/sbin/ipfw -q add ${IPFW_RULE} deny ip from any to ${ext_br_ip} via ${_uplink_iface4}
-		/sbin/ipfw -q add ${IPFW_RULE} deny ip from 172.16.${MYID}.2,172.16.${MYID}.3 to any out via ${_uplink_iface4}
+		/sbin/ipfw -q add ${IPFW_RULE} deny ip from 172.16.${MYID}.2,172.16.${MYID}.3,${int_br_ip} to any out via ${_uplink_iface4}
+		/sbin/ipfw -q add ${IPFW_RULE} deny ip6 from ${ext_ip} to any out via ${_uplink_iface4}
 
 		${IFCONFIG_CMD} ${int_bridge_name} create description k8s-${MYID}-int
 		${IFCONFIG_CMD} ${int_bridge_name} ${int_br_ip}/24 up
