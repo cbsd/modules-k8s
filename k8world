@@ -194,33 +194,38 @@ case "${mode}" in
 		ext_bridge_name="bridge${ext_br}"
 
 		int_br_ip="${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.1"
-		ext_br_ip=$( dhcpdv6 )
-		ext_ip=$( dhcpdv6 )
-		ext_ip2=$( dhcpdv6 )
 
-		# check for ext_ip/ext_br_ip IP here!!
-		# to post/pre hooks + destroy
+		if [ "${multi_nic}" = "1" ]; then
+			ext_br_ip=$( dhcpdv6 )
+			ext_ip=$( dhcpdv6 )
+			ext_ip2=$( dhcpdv6 )
 
-		echo "my ifaces: int: ${int_bridge_name} -> ${int_br_ip}, ext: ${ext_bridge_name} -> ${ext_br_ip}"
+			# check for ext_ip/ext_br_ip IP here!!
+			# to post/pre hooks + destroy
 
-		IPFW_RULE=$(( MYID + 1024 ))
+			echo "my ifaces: int: ${int_bridge_name} -> ${int_br_ip}, ext: ${ext_bridge_name} -> ${ext_br_ip}"
 
-		echo "/sbin/ipfw -q add ${IPFW_RULE} deny ip from ${ext_br_ip} to any via igb0"
-		echo "/sbin/ipfw -q add ${IPFW_RULE} deny ip from any to ${ext_br_ip} via ${_uplink_iface4}"
-		/sbin/ipfw -q add ${IPFW_RULE} deny ip from ${ext_br_ip} to any via ${_uplink_iface4}
-		/sbin/ipfw -q add ${IPFW_RULE} deny ip from any to ${ext_br_ip} via ${_uplink_iface4}
-		/sbin/ipfw -q add ${IPFW_RULE} deny ip from ${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.2,${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.3,${int_br_ip} to any out via ${_uplink_iface4}
-		/sbin/ipfw -q add ${IPFW_RULE} deny ip6 from ${ext_ip} to any out via ${_uplink_iface4}
+			IPFW_RULE=$(( MYID + 1024 ))
+
+			echo "/sbin/ipfw -q add ${IPFW_RULE} deny ip from ${ext_br_ip} to any via igb0"
+			echo "/sbin/ipfw -q add ${IPFW_RULE} deny ip from any to ${ext_br_ip} via ${_uplink_iface4}"
+			/sbin/ipfw -q add ${IPFW_RULE} deny ip from ${ext_br_ip} to any via ${_uplink_iface4}
+			/sbin/ipfw -q add ${IPFW_RULE} deny ip from any to ${ext_br_ip} via ${_uplink_iface4}
+			/sbin/ipfw -q add ${IPFW_RULE} deny ip from ${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.2,${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.3,${int_br_ip} to any out via ${_uplink_iface4}
+			/sbin/ipfw -q add ${IPFW_RULE} deny ip6 from ${ext_ip} to any out via ${_uplink_iface4}
+		fi
 
 		${IFCONFIG_CMD} ${int_bridge_name} create description k8s-${MYID}-int
 		${IFCONFIG_CMD} ${int_bridge_name} ${int_br_ip}/24 up
 
-		${IFCONFIG_CMD} ${ext_bridge_name} create description k8s-${MYID}-ext
-		${IFCONFIG_CMD} ${ext_bridge_name} inet6 ${ext_br_ip}/64 up
+		if [ "${multi_nic}" = "1" ]; then
+			${IFCONFIG_CMD} ${ext_bridge_name} create description k8s-${MYID}-ext
+			${IFCONFIG_CMD} ${ext_bridge_name} inet6 ${ext_br_ip}/64 up
 
-		# to post/pre hooks + destroy
-		${ROUTE_CMD} -6 add ${ext_ip} -interface ${ext_bridge_name}
-		${ROUTE_CMD} -6 add ${ext_ip2} -interface ${ext_bridge_name}
+			# to post/pre hooks + destroy
+			${ROUTE_CMD} -6 add ${ext_ip} -interface ${ext_bridge_name}
+			${ROUTE_CMD} -6 add ${ext_ip2} -interface ${ext_bridge_name}
+		fi
 
 		cbsdsqlrw ${dbpath} "INSERT INTO k8world ( k8s_name,node_cidr,net_id ) VALUES ( \"${k8s_name}\", \"${MYNET}\",\"${MYID}\" )"
 
@@ -258,9 +263,13 @@ case "${mode}" in
 
 		create_time=$( ${DATE_CMD} -u "+%Y-%m-%dT%H:%M:%S" )
 
-		echo "cbsd k8s mode=init k8s_name=\"${k8s_name}\" master_vm_ram=\"${master_vm_ram}\" pv_enable=\"10g\" init_master_ips=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.2 ip4_gw=${int_br_ip} vip=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.3 master_interfaces=\"${int_bridge_name} ${ext_bridge_name}\" init_master_ips2=\"${ext_ip}\" ci_gw42=\"${ext_br_ip}\" develop=${develop} server_ip_extra=\"${ext_ip}\" server_kubeconfig=\"[${ext_ip}]:6443\" runasap=${runasap} email=\"${email}\" cluster=\"try-fcp.org\" server_dns=\"${k8s_name}.try-fcp.org,master1\"" >> /tmp/k8world.log
-		k8s mode=init k8s_name="${k8s_name}" master_vm_ram="${master_vm_ram}" pv_enable="10g" init_master_ips=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.2 ip4_gw=${int_br_ip} vip=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.3 master_interfaces="${int_bridge_name} ${ext_bridge_name}" init_master_ips2="${ext_ip}/64,${ext_ip2}/64" ci_gw42="${ext_br_ip}" develop=${develop} server_ip_extra="${ext_ip}" server_kubeconfig="[${ext_ip}]:6443" runasap=${runasap} email="${email}" server_dns="${k8s_name}.try-fcp.org,master1" cluster="try-fcp.org"
-
+		if [ "${multi_nic}" = "1" ]; then
+			echo "cbsd k8s mode=init k8s_name=\"${k8s_name}\" master_vm_ram=\"${master_vm_ram}\" pv_enable=\"10g\" init_master_ips=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.2 ip4_gw=${int_br_ip} vip=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.3 master_interfaces=\"${int_bridge_name} ${ext_bridge_name}\" init_master_ips2=\"${ext_ip}\" ci_gw42=\"${ext_br_ip}\" develop=${develop} server_ip_extra=\"${ext_ip}\" server_kubeconfig=\"[${ext_ip}]:6443\" runasap=${runasap} email=\"${email}\" cluster=\"try-fcp.org\" server_dns=\"${k8s_name}.try-fcp.org,master1\"" >> /tmp/k8world.log
+			k8s mode=init k8s_name="${k8s_name}" master_vm_ram="${master_vm_ram}" pv_enable="10g" init_master_ips=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.2 ip4_gw=${int_br_ip} vip=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.3 master_interfaces="${int_bridge_name} ${ext_bridge_name}" init_master_ips2="${ext_ip}/64,${ext_ip2}/64" ci_gw42="${ext_br_ip}" develop=${develop} server_ip_extra="${ext_ip}" server_kubeconfig="[${ext_ip}]:6443" runasap=${runasap} email="${email}" server_dns="${k8s_name}.try-fcp.org,master1" cluster="try-fcp.org"
+		else
+			echo "cbsd k8s mode=init k8s_name=\"${k8s_name}\" master_vm_ram=\"${master_vm_ram}\" pv_enable=\"10g\" init_master_ips=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.2 ip4_gw=${int_br_ip} vip=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.3 master_interfaces=\"${int_bridge_name}\" develop=${develop} runasap=${runasap} email=\"${email}\" cluster=\"try-fcp.org\" server_dns=\"${k8s_name}.try-fcp.org,master1\"" >> /tmp/k8world.log
+			k8s mode=init k8s_name="${k8s_name}" master_vm_ram="${master_vm_ram}" pv_enable="10g" init_master_ips=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.2 ip4_gw=${int_br_ip} vip=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.3 master_interfaces="${int_bridge_name}" develop=${develop} runasap=${runasap} email="${email}" server_dns="${k8s_name}.try-fcp.org,master1" cluster="try-fcp.org"
+		fi
 		#echo "[debug]: k8s mode=init ${pass_cmd} ip4_gw=${int_br_ip} node_cidr=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}"
 		#k8s mode=init ${pass_cmd} ip4_gw=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.1 node_cidr=${K8S_IP_OCTET1}.${K8S_IP_OCTET2}.${MYID}.0/24 master_interfaces=vale${MYID} worker_interfaces=vale${MYID} runasap=${runasap}
 
@@ -352,7 +361,7 @@ ssh_console_port=${ssh_console_port}
 EOF
 		fi
 
-		${CHOWN_CMD} ${cbsduser}:${cbsduser} ${cbsd_api_dbdir}/${cid}/vms/${jname} ${cbsd_api_dbdir}/${cid}/${jname}.node ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh
+		${CHOWN_CMD} ${cbsduser}:${cbsduser} ${cbsd_api_dbdir}/${cid}/vms/${k8s_name} ${cbsd_api_dbdir}/${cid}/${k8s_name}.node ${cbsd_api_dbdir}/${cid}/${k8s_name}-bhyve.ssh
 		[ -n "${api_postcreate_hook}" -a -x "${api_postcreate_hook}" ] && ${api_postcreate_hook} -c ${cid} -j ${k8s_name} -m create -r ${cbsd_api_dbdir}
 
 		[ "${K8S_MK_JAIL}" = "1" ] && mkjail
