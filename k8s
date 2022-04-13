@@ -1095,6 +1095,7 @@ case "${mode}" in
 				else
 					${MV_CMD} ${temp_dir}/config ${MODULE_PATH}/${k8s_name}.kubeconfig
 				fi
+				${CHOWN_CMD} cbsd:cbsd ${MODULE_PATH}/${k8s_name}.kubeconfig
 				${ECHO} "${N1_COLOR}env KUBECONFIG=${N2_COLOR}${MODULE_PATH}/${k8s_name}.kubeconfig${N0_COLOR}"
 			fi
 			${RM_CMD} -rf ${temp_dir}
