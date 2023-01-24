@@ -15,7 +15,25 @@ cbsd initenv
 
 Quick start:
 
+1)
   `cbsd k8s mode=init`
+
+or PV enabled ( 10Gb, NFS server: 10.0.100.1 ):
+
+```
+cbsd k8s mode=init k8s_name=master1 init_masters_ips=DHCP vip=DHCP \
+master_interface=em0 \
+worker_interface=em0 \
+ip4_gw=10.0.100.1 \
+ntp_servers=10.0.100.1 \
+pv_enable=10 \
+pv_spec_server=10.0.100.1
+```
+
+2) `cbsd k8s mode=init_upfile k8s_name="master1"`
+
+3) `cbsd up`
+
 
   Refer to the [documentation page](https://www.bsdstore.ru/en/12.x/wf_k8s_ssi.html).
 
