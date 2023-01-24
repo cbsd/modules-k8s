@@ -18,7 +18,7 @@ Quick start:
 1)
   `cbsd k8s mode=init`
 
-or PV enabled ( 10Gb, NFS server: 10.0.100.1 ):
+or PV enabled ( 10Gb, NFS server: 10.0.100.1 ). Warning: fix/set correct interface instead of 'em0':
 
 ```
 cbsd k8s mode=init k8s_name=master1 init_masters_ips=DHCP vip=DHCP \
